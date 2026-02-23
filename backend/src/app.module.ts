@@ -4,6 +4,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
+import { WikipediaModule } from './wikipedia/wikipedia.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { HealthModule } from './health/health.module';
       validate: validateEnv,
     }),
     HealthModule,
+    WikipediaModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

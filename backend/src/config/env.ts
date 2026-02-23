@@ -2,8 +2,11 @@ import { z } from 'zod';
 
 const envSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
+    OPENAI_API_KEY: z.string().optional(),
   })
   .passthrough();
 
