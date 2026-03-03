@@ -1,6 +1,16 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { api } from 'boot/axios';
+import DOMPurify from 'dompurify';
+
+const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
+
+function getWikiLang(): string {
+  const locale = localStorage.getItem(LOCALE_STORAGE_KEY) || 'de';
+  // Map locale codes to Wikipedia language codes
+  if (locale === 'en-US') return 'en';
+  return locale;
+}
 
 export interface SearchResult {
   title: string;
@@ -11,8 +21,11 @@ export interface SearchResult {
 export interface Article {
   title: string;
   content: string;
+  contentHtml: string;
   url: string;
 }
+
+export type ArticleViewMode = 'original' | 'simplified';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -28,9 +41,19 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const article = ref<Article | null>(null);
   const simplifiedContent = ref('');
   const cefrLevel = ref('B1');
+  const viewMode = ref<ArticleViewMode>('original');
   const articleLoading = ref(false);
   const simplifyLoading = ref(false);
   const articleError = ref('');
+
+  const articleHtmlSanitized = computed(() => {
+    const html = article.value?.contentHtml;
+    if (!html) return '';
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ['target', 'rel', 'srcset'],
+    });
+  });
 
   const chatMessages = ref<ChatMessage[]>([]);
   const chatLoading = ref(false);
@@ -41,7 +64,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     searchError.value = '';
     try {
       const response = await api.get<SearchResult[]>('/wikipedia/search', {
-        params: { q: query },
+        params: { q: query, lang: getWikiLang() },
       });
       searchResults.value = response.data;
     } catch (err) {
@@ -57,13 +80,14 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleError.value = '';
     article.value = null;
     simplifiedContent.value = '';
+    viewMode.value = 'original';
     chatMessages.value = [];
     try {
       const response = await api.get<Article>(
         `/wikipedia/article/${encodeURIComponent(title)}`,
+        { params: { lang: getWikiLang() } },
       );
       article.value = response.data;
-      await simplify();
     } catch (err) {
       console.error('Article load error:', err);
       articleError.value = 'Failed to load article. Please try again.';
@@ -118,8 +142,10 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     searchLoading,
     searchError,
     article,
+    articleHtmlSanitized,
     simplifiedContent,
     cefrLevel,
+    viewMode,
     articleLoading,
     simplifyLoading,
     articleError,

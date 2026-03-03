@@ -1,17 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+type ClaudeRole = 'user' | 'assistant';
+
+interface ClaudeMessage {
+  role: ClaudeRole;
+  content: Array<{ type: 'text'; text: string }>;
 }
 
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
+interface ClaudeResponse {
+  content: Array<{ type: 'text'; text: string }>;
 }
 
 export interface ChatMessage {
@@ -21,42 +19,56 @@ export interface ChatMessage {
 
 @Injectable()
 export class AiService {
-  private readonly openaiBaseUrl = 'https://api.openai.com/v1';
+  private readonly anthropicMessagesUrl = 'https://api.anthropic.com/v1/messages';
+  private readonly defaultModel = 'claude-haiku-4-5-20251001';
 
   constructor(private readonly configService: ConfigService) {}
 
   async simplify(text: string, level: string): Promise<{ simplified: string }> {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
     if (!apiKey) {
       return { simplified: text };
     }
+
+    const model =
+      this.configService.get<string>('CLAUDE_MODEL') ?? this.defaultModel;
 
     const truncatedText =
       text.length > 3000 ? text.slice(0, 3000) + '...' : text;
     const prompt = `Simplify the following Wikipedia article text to CEFR level ${level} for students aged 12-15. Keep it educational and accurate but use simpler vocabulary and shorter sentences. Return only the simplified text without any preamble.\n\n${truncatedText}`;
 
-    const response = await fetch(`${this.openaiBaseUrl}/chat/completions`, {
+    const response = await fetch(this.anthropicMessagesUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }] as OpenAIMessage[],
+        model,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: prompt }],
+          },
+        ] satisfies ClaudeMessage[],
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const details = await response.text().catch(() => '');
+      throw new Error(
+        `Claude API error: ${response.status}${details ? ` - ${details}` : ''}`,
+      );
     }
 
-    const data = (await response.json()) as OpenAIResponse;
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Unexpected response from OpenAI API');
+    const data = (await response.json()) as ClaudeResponse;
+    const simplified = data.content?.find((c) => c.type === 'text')?.text;
+    if (!simplified) {
+      throw new Error('Unexpected response from Claude API');
     }
-    return { simplified: content };
+    return { simplified };
   }
 
   async chat(
@@ -65,10 +77,15 @@ export class AiService {
     message: string,
     history: ChatMessage[],
   ): Promise<{ reply: string }> {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
     if (!apiKey) {
-      return { reply: 'AI chat is not configured. Please set OPENAI_API_KEY.' };
+      return {
+        reply: 'AI chat is not configured. Please set ANTHROPIC_API_KEY.',
+      };
     }
+
+    const model =
+      this.configService.get<string>('CLAUDE_MODEL') ?? this.defaultModel;
 
     const truncatedContent =
       articleContent.length > 2000
@@ -76,33 +93,44 @@ export class AiService {
         : articleContent;
     const systemPrompt = `You are a helpful educational assistant for secondary school students aged 12-15. Help students understand a Wikipedia article about "${articleTitle}". Base your answers on the following article content:\n\n${truncatedContent}\n\nAnswer questions clearly and simply. If a question is not related to the article, politely redirect to the article topic.`;
 
-    const messages: OpenAIMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...history,
-      { role: 'user', content: message },
+    const messages: ClaudeMessage[] = [
+      ...history.map((m) => ({
+        role: m.role,
+        content: [{ type: 'text' as const, text: m.content }],
+      })),
+      {
+        role: 'user',
+        content: [{ type: 'text' as const, text: message }],
+      },
     ];
 
-    const response = await fetch(`${this.openaiBaseUrl}/chat/completions`, {
+    const response = await fetch(this.anthropicMessagesUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
+        system: systemPrompt,
+        max_tokens: 800,
         messages,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const details = await response.text().catch(() => '');
+      throw new Error(
+        `Claude API error: ${response.status}${details ? ` - ${details}` : ''}`,
+      );
     }
 
-    const data = (await response.json()) as OpenAIResponse;
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Unexpected response from OpenAI API');
+    const data = (await response.json()) as ClaudeResponse;
+    const reply = data.content?.find((c) => c.type === 'text')?.text;
+    if (!reply) {
+      throw new Error('Unexpected response from Claude API');
     }
-    return { reply: content };
+    return { reply };
   }
 }

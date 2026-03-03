@@ -21,12 +21,27 @@ declare module 'vue-i18n' {
 }
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
+const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
+
+function getSavedLocale(): MessageLanguages {
+  const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+  if (saved && saved in messages) {
+    return saved as MessageLanguages;
+  }
+  return 'de';
+}
+
+function saveLocale(locale: string) {
+  localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+}
+
 export default defineBoot(({ app }) => {
   const i18n = createI18n<{ message: MessageSchema }, MessageLanguages>({
-    locale: 'en-US',
+    locale: getSavedLocale(),
     messages,
   });
 
-  // Set i18n instance on app
   app.use(i18n);
 });
+
+export { saveLocale, getSavedLocale, LOCALE_STORAGE_KEY };

@@ -9,13 +9,51 @@
           {{ $t('app.tagline') }}
         </div>
         <q-form @submit.prevent="onSearch" class="row items-center q-gutter-sm justify-center">
-          <q-input
-            v-model="searchInput"
-            outlined
-            :placeholder="$t('search.placeholder')"
-            class="search-input"
-            autofocus
-          />
+          <div class="search-wrapper" style="position: relative;">
+            <q-input
+              v-model="searchInput"
+              outlined
+              :placeholder="$t('search.placeholder')"
+              class="search-input"
+              autofocus
+              @update:model-value="onLiveSearch"
+              @keydown.down.prevent="highlightNext"
+              @keydown.up.prevent="highlightPrev"
+              @keydown.enter.prevent="onEnter"
+              @keydown.escape="closeSuggestions"
+              @blur="onBlur"
+              autocomplete="off"
+            />
+            <q-card
+              v-if="suggestions.length > 0 && showSuggestions"
+              flat
+              bordered
+              class="suggestions-dropdown"
+            >
+              <q-list separator>
+                <q-item
+                  v-for="(item, index) in suggestions"
+                  :key="item.pageid"
+                  clickable
+                  v-ripple
+                  :active="index === highlightedIndex"
+                  active-class="bg-blue-1"
+                  @mousedown.prevent="openArticle(item.title)"
+                >
+                  <q-item-section avatar class="suggestion-thumb">
+                    <q-avatar square size="40px" v-if="item.thumbnail">
+                      <img :src="item.thumbnail" :alt="item.title" />
+                    </q-avatar>
+                    <q-avatar square size="40px" color="grey-3" icon="article" v-else />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-weight-bold">{{ item.title }}</q-item-label>
+                    <q-item-label caption class="ellipsis">{{ item.description }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-card>
+          </div>
           <q-btn
             color="primary"
             icon="search"
@@ -97,15 +135,100 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 import { useWikipediaStore } from 'stores/wikipedia';
+import { api } from 'boot/axios';
+
+interface Suggestion {
+  title: string;
+  description: string;
+  thumbnail: string | null;
+  pageid: number;
+}
+
+const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
+
+function getWikiLang(): string {
+  const locale = localStorage.getItem(LOCALE_STORAGE_KEY) || 'de';
+  if (locale === 'en-US') return 'en';
+  return locale;
+}
 
 export default defineComponent({
   name: 'IndexPage',
 
   setup() {
     const store = useWikipediaStore();
-    return { store };
+    const suggestions = ref<Suggestion[]>([]);
+    const showSuggestions = ref(false);
+    const highlightedIndex = ref(-1);
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function fetchSuggestions(query: string) {
+      if (!query.trim()) {
+        suggestions.value = [];
+        return;
+      }
+      try {
+        const response = await api.get<Suggestion[]>('/wikipedia/suggest', {
+          params: { q: query, lang: getWikiLang() },
+        });
+        suggestions.value = response.data;
+        showSuggestions.value = true;
+        highlightedIndex.value = -1;
+      } catch {
+        suggestions.value = [];
+      }
+    }
+
+    function onLiveSearch(val: string | number | null) {
+      const query = String(val ?? '');
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (!query.trim()) {
+        suggestions.value = [];
+        showSuggestions.value = false;
+        return;
+      }
+      debounceTimer = setTimeout(() => {
+        void fetchSuggestions(query);
+      }, 200);
+    }
+
+    function closeSuggestions() {
+      showSuggestions.value = false;
+    }
+
+    function onBlur() {
+      // Delay to allow click on suggestion
+      setTimeout(() => {
+        showSuggestions.value = false;
+      }, 200);
+    }
+
+    function highlightNext() {
+      if (suggestions.value.length === 0) return;
+      highlightedIndex.value = (highlightedIndex.value + 1) % suggestions.value.length;
+    }
+
+    function highlightPrev() {
+      if (suggestions.value.length === 0) return;
+      highlightedIndex.value =
+        highlightedIndex.value <= 0
+          ? suggestions.value.length - 1
+          : highlightedIndex.value - 1;
+    }
+
+    return {
+      store,
+      suggestions,
+      showSuggestions,
+      highlightedIndex,
+      onLiveSearch,
+      closeSuggestions,
+      onBlur,
+      highlightNext,
+      highlightPrev,
+    };
   },
 
   data() {
@@ -130,10 +253,26 @@ export default defineComponent({
     onSearch() {
       const q = this.searchInput.trim();
       if (!q) return;
+      this.showSuggestions = false;
       void this.$router.push({ path: '/', query: { q } });
     },
 
+    onEnter() {
+      const selected =
+        this.highlightedIndex >= 0 && this.highlightedIndex < this.suggestions.length
+          ? this.suggestions[this.highlightedIndex]
+          : undefined;
+
+      if (selected) {
+        this.openArticle(selected.title);
+        return;
+      }
+
+      this.onSearch();
+    },
+
     openArticle(title: string) {
+      this.showSuggestions = false;
       void this.$router.push({ path: `/article/${encodeURIComponent(title)}` });
     },
   },
@@ -143,5 +282,22 @@ export default defineComponent({
 <style scoped>
 .search-input {
   min-width: 280px;
+}
+.search-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 0 0 4px 4px;
+}
+.suggestion-thumb {
+  min-width: 48px !important;
 }
 </style>

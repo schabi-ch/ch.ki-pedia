@@ -14,6 +14,8 @@ export default {
   },
   article: {
     sourceLink: 'View on Wikipedia',
+    viewOriginal: 'Original',
+    viewSimplified: 'Simplified',
     cefrLabel: 'Reading level',
     cefrLevels: {
       A1: 'A1 – Beginner',

@@ -25,6 +25,17 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Claude / API-Key
+
+Die API-Konfiguration wird aus **backend/.env** geladen.
+
+```env
+ANTHROPIC_API_KEY=dein_key_hier
+
+# Optional (Default)
+CLAUDE_MODEL=claude-haiku-4-5-20251001
+```
+
 ## Project setup
 
 ```bash

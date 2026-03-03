@@ -25,6 +25,27 @@
             type="submit"
           />
         </q-form>
+
+        <q-select
+          v-model="currentLocale"
+          :options="localeOptions"
+          emit-value
+          map-options
+          dense
+          dark
+          outlined
+          class="q-ml-md locale-select"
+          @update:model-value="onLocaleChange"
+        />
+
+        <q-btn
+          round
+          dense
+          flat
+          :icon="isDark ? 'light_mode' : 'dark_mode'"
+          class="q-ml-sm"
+          @click="toggleDark"
+        />
       </q-toolbar>
     </q-header>
 
@@ -35,15 +56,49 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
+import { saveLocale, getSavedLocale } from 'boot/i18n';
+
+const DARK_STORAGE_KEY = 'ki-pedia-dark';
 
 export default defineComponent({
   name: 'MainLayout',
 
   setup() {
     const router = useRouter();
-    return { router };
+    const $q = useQuasar();
+    const { locale } = useI18n({ useScope: 'global' });
+
+    const localeOptions = [
+      { label: 'Deutsch', value: 'de' },
+      { label: 'Français', value: 'fr' },
+      { label: 'Italiano', value: 'it' },
+      { label: 'Rumantsch', value: 'rm' },
+      { label: 'English', value: 'en-US' },
+    ];
+
+    const currentLocale = ref(getSavedLocale());
+
+    // Dark mode from LocalStorage
+    const savedDark = localStorage.getItem(DARK_STORAGE_KEY);
+    const isDark = ref(savedDark === 'true');
+    $q.dark.set(isDark.value);
+
+    function onLocaleChange(val: string) {
+      locale.value = val;
+      saveLocale(val);
+    }
+
+    function toggleDark() {
+      isDark.value = !isDark.value;
+      $q.dark.set(isDark.value);
+      localStorage.setItem(DARK_STORAGE_KEY, String(isDark.value));
+    }
+
+    return { router, localeOptions, currentLocale, isDark, onLocaleChange, toggleDark };
   },
 
   data() {
@@ -69,5 +124,8 @@ export default defineComponent({
 }
 .header-search {
   min-width: 200px;
+}
+.locale-select {
+  min-width: 120px;
 }
 </style>
