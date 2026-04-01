@@ -24,6 +24,11 @@ export class WikipediaController {
     return this.wikipediaService.getArticle(title, lang);
   }
 
+  @Get('article/:title/languages')
+  getLanguages(@Param('title') title: string, @Query('lang') lang?: string) {
+    return this.wikipediaService.getLanguageLinks(title, lang ?? 'en');
+  }
+
   @Get('suggest')
   suggest(@Query('q') query: string, @Query('lang') lang?: string) {
     if (!query?.trim()) {

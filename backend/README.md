@@ -39,34 +39,40 @@ CLAUDE_MODEL=claude-haiku-4-5-20251001
 ## Project setup
 
 ```bash
-$ yarn install
+$ npm ci
+# oder
+# npm install
 ```
 
 ## Compile and run the project
 
 ```bash
 # development
-$ yarn run start
+$ npm run start
 
 # watch mode
-$ yarn run start:dev
+$ npm run start:dev
 
 # production mode
-$ yarn run start:prod
+$ npm run start:prod
 ```
 
 ## Run tests
 
 ```bash
 # unit tests
-$ yarn run test
+$ npm run test
 
 # e2e tests
-$ yarn run test:e2e
+$ npm run test:e2e
 
 # test coverage
-$ yarn run test:cov
+$ npm run test:cov
 ```
+
+## Infomaniak Shared Hosting
+
+Für ein konkretes Setup (Frontend als statische Dateien + Backend als Node-App hinter `/api`) siehe das Deployment-Kapitel in der Repo-README.
 
 ## Deployment
 

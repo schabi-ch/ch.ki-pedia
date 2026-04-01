@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 80 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <rect id="Artboard7" x="0" y="0" width="80" height="80" style="fill:none;"/>
+    <clipPath id="_clip1">
+        <rect x="0" y="0" width="80" height="80"/>
+    </clipPath>
+    <g clip-path="url(#_clip1)">
+        <g>
+            <path d="M0,16C0,8.5 6.5,0 16,0L64,0C73,0 80,8 80,16L80,49.002C80,57.5 72,65.003 64,65.003L48.328,65.003L29,79.503C28.25,80.066 27.234,80.16 26.375,79.738C25.516,79.316 25,78.457 25,77.503L25,65.003L16,65.003C8,65.003 0,58.5 0,49.002L0,16Z" style="fill:#d7251c;fill-rule:nonzero;"/>
+            <path d="M13.667,21.5C12.839,21.5 12.167,20.828 12.167,20C12.167,19.172 12.839,18.5 13.667,18.5L70.667,18.5C71.495,18.5 72.167,19.172 72.167,20C72.167,20.828 71.495,21.5 70.667,21.5L13.667,21.5Z" style="fill:#fff;"/>
+            <path d="M13.667,33C12.839,33 12.167,32.328 12.167,31.5C12.167,30.672 12.839,30 13.667,30L70.667,30C71.495,30 72.167,30.672 72.167,31.5C72.167,32.328 71.495,33 70.667,33L13.667,33Z" style="fill:#fff;"/>
+            <path d="M13.667,45C12.839,45 12.167,44.328 12.167,43.5C12.167,42.672 12.839,42 13.667,42L41.667,42C42.495,42 43.167,42.672 43.167,43.5C43.167,44.328 42.495,45 41.667,45L13.667,45Z" style="fill:#fff;"/>
+        </g>
+    </g>
+</svg>
