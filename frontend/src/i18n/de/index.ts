@@ -11,6 +11,11 @@ export default {
     darkModeTooltip: 'Dunkelmodus aktivieren',
     lightModeTooltip: 'Hellmodus aktivieren',
   },
+  footer: {
+    about: 'Über diese Seite',
+    imprint: 'Impressum',
+    privacy: 'Datenschutz',
+  },
   search: {
     placeholder: 'Wikipedia durchsuchen…',
     button: 'Suchen',
@@ -33,6 +38,7 @@ export default {
     },
     loading: 'Artikel wird geladen…',
     simplifying: 'Text wird vereinfacht…',
+    cancelSimplify: 'Vereinfachung abbrechen',
     simplifiedDone: 'Der Text wurde jetzt umgeschrieben.',
     translating: 'Artikel wird übersetzt…',
     tocTitle: 'Inhaltsverzeichnis anzeigen',
@@ -120,6 +126,7 @@ export default {
     title: 'Fragen stellen',
     placeholder: 'Stelle eine Frage zu diesem Artikel…',
     send: 'Senden',
+    stop: 'Antwort abbrechen',
     you: 'Du',
     assistant: 'ki-pedia',
   },

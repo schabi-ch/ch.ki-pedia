@@ -56,6 +56,7 @@ function getWikiLang(): string {
 
 export interface SearchResult {
   title: string;
+  description: string;
   snippet: string;
   pageid: number;
   thumbnail: string | null;
@@ -96,9 +97,18 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const simplifyLoading = ref(false);
   const translateLoading = ref(false);
   const articleError = ref('');
+  let simplifyAbortController: AbortController | null = null;
+  let simplifyRunId = 0;
 
   const displayedContent = computed(() => {
     if (!article.value) return '';
+    if (
+      simplifyLoading.value &&
+      readingLevel.value !== 'original' &&
+      !simplifiedContent.value
+    ) {
+      return '';
+    }
     if (readingLevel.value === 'original' && articleLang.value === getWikiLang()) {
       return article.value.contentMarkdown;
     }
@@ -107,27 +117,39 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   const chatMessages = ref<ChatMessage[]>([]);
   const chatLoading = ref(false);
+  let chatAbortController: AbortController | null = null;
+  let chatRunId = 0;
 
   const tocOpen = ref(getSavedTocOpen());
 
   const fontSizeLevel = ref<FontSizeLevel>(getSavedFontSize());
 
-  function setFontSize (val: FontSizeLevel) {
+  function setFontSize(val: FontSizeLevel) {
     fontSizeLevel.value = val;
     persistFontSize(val);
   }
 
-  function setTocOpen (val: boolean, persist: boolean = true) {
+  function setTocOpen(val: boolean, persist: boolean = true) {
     tocOpen.value = val;
     if (persist) {
       persistTocOpen(val);
     }
   }
 
-  function toggleToc () {
+  function toggleToc() {
     const next = !tocOpen.value;
     tocOpen.value = next;
     persistTocOpen(next);
+  }
+
+  function abortSimplifyStream() {
+    simplifyAbortController?.abort();
+    simplifyAbortController = null;
+  }
+
+  function abortChatStream() {
+    chatAbortController?.abort();
+    chatAbortController = null;
   }
 
   async function search(query: string) {
@@ -148,6 +170,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   }
 
   async function loadArticle(title: string) {
+    abortSimplifyStream();
     articleLoading.value = true;
     articleError.value = '';
     article.value = null;
@@ -156,11 +179,11 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     readingLevel.value = 'original';
     articleLang.value = getWikiLang();
     chatMessages.value = [];
+    abortChatStream();
     try {
-      const response = await api.get<Article>(
-        `/wikipedia/article/${encodeURIComponent(title)}`,
-        { params: { lang: getWikiLang() } },
-      );
+      const response = await api.get<Article>(`/wikipedia/article/${encodeURIComponent(title)}`, {
+        params: { lang: getWikiLang() },
+      });
       article.value = response.data;
       // Cache the original version
       setVersion(response.data.title, getWikiLang(), 'original', response.data.contentMarkdown);
@@ -190,32 +213,29 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     if (!article.value) return;
     const level = readingLevel.value;
     if (level === 'original') {
+      abortSimplifyStream();
       simplifiedContent.value = '';
       return;
     }
+    simplifiedContent.value = '';
     // Check cache first
     const cached = getVersion(article.value.title, articleLang.value, level);
     if (cached) {
+      abortSimplifyStream();
       simplifiedContent.value = cached;
       return;
     }
-    simplifyLoading.value = true;
-    try {
-      // Get the source text: use the original in the current articleLang
-      const sourceText = getVersion(article.value.title, articleLang.value, 'original') ?? article.value.contentMarkdown;
-      const response = await api.post<{ simplified: string }>('/ai/simplify', {
-        text: sourceText,
-        level,
-      });
-      simplifiedContent.value = response.data.simplified;
-      setVersion(article.value.title, articleLang.value, level, response.data.simplified);
-      notifySuccess(getLocalizedMessage('article.simplifiedDone', 'The text has been rewritten.'));
-    } catch (err) {
-      console.error('Simplify error:', err);
-      simplifiedContent.value = article.value.contentMarkdown;
-    } finally {
-      simplifyLoading.value = false;
-    }
+    // Get the source text: use the original in the current articleLang
+    const sourceText =
+      getVersion(article.value.title, articleLang.value, 'original') ??
+      article.value.contentMarkdown;
+    await streamSimplifiedContent({
+      sourceText,
+      level,
+      cacheTitle: article.value.title,
+      cacheLang: articleLang.value,
+      fallbackText: article.value.contentMarkdown,
+    });
   }
 
   async function translate(targetLang: string) {
@@ -255,25 +275,18 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       return;
     }
     // Now simplify the translated original
-    simplifyLoading.value = true;
-    try {
-      const response = await api.post<{ simplified: string }>('/ai/simplify', {
-        text: translatedOriginal,
-        level,
-      });
-      simplifiedContent.value = response.data.simplified;
-      setVersion(article.value.title, targetLang, level, response.data.simplified);
-      notifySuccess(getLocalizedMessage('article.simplifiedDone', 'The text has been rewritten.'));
-    } catch (err) {
-      console.error('Simplify error:', err);
-      simplifiedContent.value = translatedOriginal;
-    } finally {
-      simplifyLoading.value = false;
-    }
+    await streamSimplifiedContent({
+      sourceText: translatedOriginal,
+      level,
+      cacheTitle: article.value.title,
+      cacheLang: targetLang,
+      fallbackText: translatedOriginal,
+    });
   }
 
   async function loadArticleInLanguage(targetLang: string) {
     if (!article.value) return;
+    abortSimplifyStream();
     const langLink = articleLanguages.value.find((l) => l.lang === targetLang);
     if (!langLink) return;
     const previousLang = articleLang.value;
@@ -283,6 +296,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     readingLevel.value = 'original';
     articleLang.value = targetLang;
     chatMessages.value = [];
+    abortChatStream();
     try {
       const response = await api.get<Article>(
         `/wikipedia/article/${encodeURIComponent(langLink.title)}`,
@@ -302,25 +316,159 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   async function sendMessage(message: string) {
     if (!article.value) return;
+    abortChatStream();
+    const controller = new AbortController();
+    chatAbortController = controller;
+    const runId = ++chatRunId;
+    const history = chatMessages.value.slice(-10);
+
     chatMessages.value.push({ role: 'user', content: message });
+    chatMessages.value.push({ role: 'assistant', content: '' });
     chatLoading.value = true;
     try {
-      const response = await api.post<{ reply: string }>('/ai/chat', {
-        articleTitle: article.value.title,
-        articleContent: simplifiedContent.value || article.value.contentMarkdown,
-        message,
-        history: chatMessages.value.slice(0, -1).slice(-10),
+      const response = await fetch('/api/ai/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          articleTitle: article.value.title,
+          articleContent: simplifiedContent.value || article.value.contentMarkdown,
+          message,
+          history,
+        }),
+        signal: controller.signal,
       });
-      chatMessages.value.push({ role: 'assistant', content: response.data.reply });
+
+      if (!response.ok) {
+        const details = await response.text().catch(() => '');
+        throw new Error(`Chat stream failed: ${response.status}${details ? ` - ${details}` : ''}`);
+      }
+      if (!response.body) {
+        throw new Error('Chat stream did not return a readable body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        if (runId !== chatRunId) {
+          continue;
+        }
+        const assistantMessage = chatMessages.value.at(-1);
+        if (assistantMessage?.role === 'assistant') {
+          assistantMessage.content += chunk;
+        }
+      }
+
+      const trailing = decoder.decode();
+      if (trailing && runId === chatRunId) {
+        const assistantMessage = chatMessages.value.at(-1);
+        if (assistantMessage?.role === 'assistant') {
+          assistantMessage.content += trailing;
+        }
+      }
     } catch (err) {
-      console.error('Chat error:', err);
-      chatMessages.value.push({
-        role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again.',
-      });
+      if (isAbortError(err)) {
+        if (runId === chatRunId) {
+          const assistantMessage = chatMessages.value.at(-1);
+          if (assistantMessage?.role === 'assistant' && !assistantMessage.content.trim()) {
+            chatMessages.value.pop();
+          }
+        }
+        return;
+      }
+      console.error('Chat stream error:', err);
+      const assistantMessage = chatMessages.value.at(-1);
+      if (assistantMessage?.role === 'assistant') {
+        assistantMessage.content = 'Sorry, something went wrong. Please try again.';
+      }
     } finally {
-      chatLoading.value = false;
+      if (runId === chatRunId) {
+        chatLoading.value = false;
+        chatAbortController = null;
+      }
     }
+  }
+
+  async function streamSimplifiedContent(options: {
+    sourceText: string;
+    level: Exclude<ReadingLevel, 'original'>;
+    cacheTitle: string;
+    cacheLang: string;
+    fallbackText: string;
+  }): Promise<void> {
+    abortSimplifyStream();
+    const controller = new AbortController();
+    simplifyAbortController = controller;
+    const runId = ++simplifyRunId;
+    let accumulated = '';
+
+    simplifyLoading.value = true;
+    simplifiedContent.value = '';
+
+    try {
+      const response = await fetch('/api/ai/simplify/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: options.sourceText,
+          level: options.level,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const details = await response.text().catch(() => '');
+        throw new Error(
+          `Simplify stream failed: ${response.status}${details ? ` - ${details}` : ''}`,
+        );
+      }
+      if (!response.body) {
+        throw new Error('Simplify stream did not return a readable body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        accumulated += chunk;
+        if (runId === simplifyRunId) {
+          simplifiedContent.value = accumulated;
+        }
+      }
+
+      const remaining = decoder.decode();
+      if (remaining) {
+        accumulated += remaining;
+        simplifiedContent.value = accumulated;
+      }
+      if (runId !== simplifyRunId) return;
+
+      setVersion(options.cacheTitle, options.cacheLang, options.level, accumulated);
+      notifySuccess(getLocalizedMessage('article.simplifiedDone', 'The text has been rewritten.'));
+    } catch (err) {
+      if (isAbortError(err)) {
+        return;
+      }
+      console.error('Simplify stream error:', err);
+      if (runId === simplifyRunId) {
+        simplifiedContent.value = options.fallbackText;
+      }
+    } finally {
+      if (runId === simplifyRunId) {
+        simplifyLoading.value = false;
+        simplifyAbortController = null;
+      }
+    }
+  }
+
+  function isAbortError(err: unknown): boolean {
+    return err instanceof DOMException && err.name === 'AbortError';
   }
 
   return {
@@ -351,6 +499,8 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     simplify,
     translate,
     sendMessage,
+    abortSimplifyStream,
+    abortChatStream,
   };
 });
 

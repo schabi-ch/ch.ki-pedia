@@ -11,6 +11,11 @@ export default {
     darkModeTooltip: 'Attiva la modalita scura',
     lightModeTooltip: 'Attiva la modalita chiara',
   },
+  footer: {
+    about: 'Informazioni su questo sito',
+    imprint: 'Note legali',
+    privacy: 'Protezione dei dati',
+  },
   search: {
     placeholder: 'Cerca su Wikipedia…',
     button: 'Cerca',
@@ -33,9 +38,10 @@ export default {
     },
     loading: "Caricamento dell'articolo…",
     simplifying: 'Semplificazione del testo…',
+    cancelSimplify: 'Interrompi la semplificazione',
     simplifiedDone: 'Il testo e stato ora riformulato.',
     translating: "Traduzione dell'articolo…",
-      tocTitle: 'Inhaltsverzeichnis anzeigen',
+    tocTitle: 'Inhaltsverzeichnis anzeigen',
     fontSize: {
       standard: 'Standard',
       large: 'Più grande',
@@ -120,6 +126,7 @@ export default {
     title: 'Fai domande',
     placeholder: 'Fai una domanda su questo articolo…',
     send: 'Invia',
+    stop: 'Interrompi la risposta',
     you: 'Tu',
     assistant: 'ki-pedia',
   },

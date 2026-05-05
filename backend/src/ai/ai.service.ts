@@ -1,91 +1,102 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { AiProvider, AiProviderName, ChatMessage } from './ai-provider';
+import { AnthropicProvider } from './anthropic.provider';
+import { GeminiProvider } from './gemini.provider';
 
-type ClaudeRole = 'user' | 'assistant';
-
-interface ClaudeMessage {
-  role: ClaudeRole;
-  content: Array<{ type: 'text'; text: string }>;
-}
-
-interface ClaudeResponse {
-  content: Array<{ type: 'text'; text: string }>;
-}
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+export type { ChatMessage } from './ai-provider';
 
 @Injectable()
 export class AiService {
-  private readonly anthropicMessagesUrl = 'https://api.anthropic.com/v1/messages';
-  private readonly defaultModel = 'claude-haiku-4-5-20251001';
+  private static readonly DEFAULT_SIMPLIFY_MAX_TOKENS = 32768;
+  private static readonly DEFAULT_CHAT_MAX_TOKENS = 2048;
 
-  constructor(private readonly configService: ConfigService) {}
+  private readonly providers: Record<AiProviderName, AiProvider>;
+
+  constructor(private readonly configService: ConfigService) {
+    this.providers = {
+      anthropic: new AnthropicProvider(configService),
+      gemini: new GeminiProvider(configService),
+    };
+  }
 
   private static readonly LEVEL_PROMPTS: Record<string, string> = {
     high: 'Simplify the text to approximately CEFR C1/C2 level: explain technical terms in parentheses, shorten complex sentences, but keep the academic tone and detailed argumentation.',
-    moderate: 'Rewrite the text to approximately CEFR B1/B2 level: use short sentences, common vocabulary, explain any remaining technical terms, and keep the core information.',
+    moderate:
+      'Rewrite the text to approximately CEFR B1/B2 level: use short sentences, common vocabulary, explain any remaining technical terms, and keep the core information.',
     low: 'Rewrite the text to approximately CEFR A1/A2 level: use only basic vocabulary, very short sentences, avoid all technical terms, and focus on the most important facts.',
-    minimal: 'Rewrite the text for children aged 8-12 or readers with very low reading proficiency: use playful language, everyday examples, very simple words, and a friendly tone. Make it fun and easy to understand.',
+    minimal:
+      'Rewrite the text for children aged 8-12 or readers with very low reading proficiency. Use very simple everyday words. Replace or remove technical terms. Break every long sentence into very short sentences. Keep only the most important facts. Each paragraph should have only a few short sentences. The result must be much easier than the original, friendly, concrete, and easy to understand.',
   };
 
   async simplify(text: string, level: string): Promise<{ simplified: string }> {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    if (!apiKey) {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
       return { simplified: text };
     }
 
-    const model =
-      this.configService.get<string>('CLAUDE_MODEL') ?? this.defaultModel;
-
-    const levelInstruction = AiService.LEVEL_PROMPTS[level] ?? AiService.LEVEL_PROMPTS['moderate'];
-
-    const prompt = `You are an educational text editor for students aged 12-15. ${levelInstruction}
-
-IMPORTANT structural rules:
-- Keep ALL Markdown headings (#, ##, ###) at their original level. You MAY simplify the heading text.
-- Keep ALL images (![alt](url)) exactly where they are. Do NOT remove or move them.
-- Keep ALL HTML <figure> blocks (including <figcaption>) exactly as they are. Do NOT modify, remove, or convert them to Markdown.
-- Keep ALL links ([text](url)) in place. You may simplify the link text.
-- Keep the SAME section order. Do NOT merge, remove, or reorder sections.
-- Return ONLY the simplified Markdown without any preamble.
-
-${text}`;
-
-    const response = await fetch(this.anthropicMessagesUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [{ type: 'text', text: prompt }],
-          },
-        ] satisfies ClaudeMessage[],
-      }),
-    });
-
-    if (!response.ok) {
-      const details = await response.text().catch(() => '');
-      throw new Error(
-        `Claude API error: ${response.status}${details ? ` - ${details}` : ''}`,
-      );
-    }
-
-    const data = (await response.json()) as ClaudeResponse;
-    const simplified = data.content?.find((c) => c.type === 'text')?.text;
-    if (!simplified) {
-      throw new Error('Unexpected response from Claude API');
-    }
+    const request = this.buildSimplifyRequest(text, level);
+    const simplified = (await provider.completeText(request)).trim();
     return { simplified };
+  }
+
+  async simplifyStream(
+    text: string,
+    level: string,
+    onChunk: (chunk: string) => void | Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<{ simplified: string }> {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
+      await onChunk(text);
+      return { simplified: text };
+    }
+
+    const request = this.buildSimplifyRequest(text, level);
+    const outputChunks: string[] = [];
+
+    await provider.completeTextStream({
+      ...request,
+      signal,
+      async onChunk(chunk) {
+        outputChunks.push(chunk);
+        await onChunk(chunk);
+      },
+    });
+    const simplified = outputChunks.join('').trim();
+    return { simplified };
+  }
+
+  async chatStream(
+    articleTitle: string,
+    articleContent: string,
+    message: string,
+    history: ChatMessage[],
+    onChunk: (chunk: string) => void | Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<{ reply: string }> {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
+      const reply = `AI chat is not configured. Please set ${provider.apiKeyEnvVar}.`;
+      await onChunk(reply);
+      return { reply };
+    }
+
+    const request = this.buildChatRequest(
+      articleTitle,
+      articleContent,
+      message,
+      history,
+    );
+
+    const reply = await provider.completeTextStream({
+      ...request,
+      signal,
+      async onChunk(chunk) {
+        await onChunk(chunk);
+      },
+    });
+    return { reply };
   }
 
   async chat(
@@ -94,60 +105,20 @@ ${text}`;
     message: string,
     history: ChatMessage[],
   ): Promise<{ reply: string }> {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    if (!apiKey) {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
       return {
-        reply: 'AI chat is not configured. Please set ANTHROPIC_API_KEY.',
+        reply: `AI chat is not configured. Please set ${provider.apiKeyEnvVar}.`,
       };
     }
 
-    const model =
-      this.configService.get<string>('CLAUDE_MODEL') ?? this.defaultModel;
-
-    const truncatedContent =
-      articleContent.length > 2000
-        ? articleContent.slice(0, 2000) + '...'
-        : articleContent;
-    const systemPrompt = `You are a helpful educational assistant for secondary school students aged 12-15. Help students understand a Wikipedia article about "${articleTitle}". Base your answers on the following article content:\n\n${truncatedContent}\n\nAnswer questions clearly and simply. If a question is not related to the article, politely redirect to the article topic.`;
-
-    const messages: ClaudeMessage[] = [
-      ...history.map((m) => ({
-        role: m.role,
-        content: [{ type: 'text' as const, text: m.content }],
-      })),
-      {
-        role: 'user',
-        content: [{ type: 'text' as const, text: message }],
-      },
-    ];
-
-    const response = await fetch(this.anthropicMessagesUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        system: systemPrompt,
-        max_tokens: 800,
-        messages,
-      }),
-    });
-
-    if (!response.ok) {
-      const details = await response.text().catch(() => '');
-      throw new Error(
-        `Claude API error: ${response.status}${details ? ` - ${details}` : ''}`,
-      );
-    }
-
-    const data = (await response.json()) as ClaudeResponse;
-    const reply = data.content?.find((c) => c.type === 'text')?.text;
-    if (!reply) {
-      throw new Error('Unexpected response from Claude API');
-    }
+    const request = this.buildChatRequest(
+      articleTitle,
+      articleContent,
+      message,
+      history,
+    );
+    const reply = await provider.completeText(request);
     return { reply };
   }
 
@@ -166,50 +137,100 @@ ${text}`;
     sourceLang: string,
     targetLang: string,
   ): Promise<{ translated: string }> {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    if (!apiKey) {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
       return { translated: text };
     }
-
-    const model =
-      this.configService.get<string>('CLAUDE_MODEL') ?? this.defaultModel;
 
     const targetName = AiService.LANG_NAMES[targetLang] ?? targetLang;
     const sourceName = AiService.LANG_NAMES[sourceLang] ?? sourceLang;
 
-    const prompt = `You are an academic translator. Translate the following Markdown text from ${sourceName} to ${targetName}. Preserve ALL Markdown formatting exactly: headings (#, ##, ###), links, images (![alt](url)), bold, italic, lists, and code blocks. Only translate the human-readable text. Return ONLY the translated Markdown without any preamble.\n\n${text}`;
+    const systemPrompt = `You are an academic translator. Translate the user's Markdown text from ${sourceName} to ${targetName}. Preserve ALL Markdown formatting exactly: headings (#, ##, ###), links, images (![alt](url)), bold, italic, lists, and code blocks. Only translate the human-readable text. Return ONLY the translated Markdown without any preamble.`;
 
-    const response = await fetch(this.anthropicMessagesUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        messages: [
-          {
-            role: 'user',
-            content: [{ type: 'text', text: prompt }],
-          },
-        ] satisfies ClaudeMessage[],
-      }),
+    const translated = await provider.completeText({
+      prompt: text,
+      systemPrompt,
     });
-
-    if (!response.ok) {
-      const details = await response.text().catch(() => '');
-      throw new Error(
-        `Claude API error: ${response.status}${details ? ` - ${details}` : ''}`,
-      );
-    }
-
-    const data = (await response.json()) as ClaudeResponse;
-    const translated = data.content?.find((c) => c.type === 'text')?.text;
-    if (!translated) {
-      throw new Error('Unexpected response from Claude API');
-    }
     return { translated };
+  }
+
+  private getActiveProvider(): AiProvider {
+    const providerName =
+      this.configService.get<AiProviderName>('AI_PROVIDER') ?? 'anthropic';
+    return this.providers[providerName];
+  }
+
+  private buildSimplifyRequest(
+    text: string,
+    level: string,
+  ): {
+    prompt: string;
+    systemPrompt: string;
+    maxTokens: number;
+  } {
+    const levelInstruction =
+      AiService.LEVEL_PROMPTS[level] ?? AiService.LEVEL_PROMPTS['moderate'];
+    return {
+      prompt: text,
+      systemPrompt: this.buildSimplifySystemPrompt(levelInstruction),
+      maxTokens: this.getSimplifyMaxTokens(),
+    };
+  }
+
+  private buildSimplifySystemPrompt(levelInstruction: string): string {
+    return `You are an educational text editor for students aged 12-15. ${levelInstruction}
+
+LANGUAGE rule:
+- Write the answer in the SAME language as the input text. Never translate it to English or to any other language.
+
+IMPORTANT structural rules:
+- Keep ALL Markdown headings (#, ##, ###) at their original level. You MAY simplify the heading text.
+- Keep ALL images (![alt](url)) exactly where they are. Do NOT remove or move them.
+- Keep ALL HTML <figure> blocks (including <figcaption>) exactly as they are. Do NOT modify, remove, or convert them to Markdown.
+- Keep ALL links ([text](url)) in place. You may simplify the link text.
+- Keep the SAME section order. Do NOT merge, remove, or reorder sections.
+- Rewrite the FULL text, not only the beginning. Do not summarize unless the level instruction explicitly requires shorter wording.
+- Return ONLY the simplified Markdown without any preamble.`;
+  }
+
+  private getSimplifyMaxTokens(): number {
+    const configured = this.configService.get<string | number>(
+      'AI_SIMPLIFY_MAX_TOKENS',
+    );
+    const parsed = Number(configured);
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : AiService.DEFAULT_SIMPLIFY_MAX_TOKENS;
+  }
+
+  private buildChatRequest(
+    articleTitle: string,
+    articleContent: string,
+    message: string,
+    history: ChatMessage[],
+  ): {
+    prompt: string;
+    systemPrompt: string;
+    history: ChatMessage[];
+    maxTokens: number;
+  } {
+    const systemPrompt = `You are a helpful educational assistant for secondary school students aged 12-15. Help students understand a Wikipedia article about "${articleTitle}". Base your answers on the following article content:\n\n${articleContent}\n\nLANGUAGE rule: answer in the same language as the student's question unless the student explicitly asks for another language. Answer questions clearly and simply. If a question is not related to the article, politely redirect to the article topic.`;
+
+    return {
+      prompt: message,
+      systemPrompt,
+      history,
+      maxTokens: this.getChatMaxTokens(),
+    };
+  }
+
+  private getChatMaxTokens(): number {
+    const configured = this.configService.get<string | number>(
+      'AI_CHAT_MAX_TOKENS',
+    );
+    const parsed = Number(configured);
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : AiService.DEFAULT_CHAT_MAX_TOKENS;
   }
 }

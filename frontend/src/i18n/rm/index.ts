@@ -11,6 +11,11 @@ export default {
     darkModeTooltip: 'Activar il modus stgir',
     lightModeTooltip: 'Activar il modus cler',
   },
+  footer: {
+    about: 'Davart questa pagina',
+    imprint: 'Impressum',
+    privacy: 'Protecziun da datas',
+  },
   search: {
     placeholder: 'Tschertgar en Wikipedia…',
     button: 'Tschertgar',
@@ -20,7 +25,7 @@ export default {
   },
   article: {
     sourceLink: 'Guardar sin Wikipedia',
-    langLabelStart: "Quest artitgel è vegni scrit en",
+    langLabelStart: 'Quest artitgel è vegni scrit en',
     langLabelEnd: '.',
     readingLevelLabel: 'Stgalim da lectura',
     articleLangLabel: "Lingua da l'artitgel",
@@ -33,9 +38,10 @@ export default {
     },
     loading: "L'artitgel vegn chargià…",
     simplifying: 'Il text vegn simplifitgà…',
+    cancelSimplify: 'Interrumper la simplificaziun',
     simplifiedDone: 'Il text e vegn ussa reformulà.',
     translating: "L'artitgel vegn tradui…",
-      tocTitle: 'Inhaltsverzeichnis anzeigen',
+    tocTitle: 'Inhaltsverzeichnis anzeigen',
     fontSize: {
       standard: 'Standard',
       large: 'Pli grond',
@@ -120,6 +126,7 @@ export default {
     title: 'Far dumondas',
     placeholder: 'Fa ina dumonda davart quest artitgel…',
     send: 'Trametter',
+    stop: 'Interrumper la resposta',
     you: 'Ti',
     assistant: 'ki-pedia',
   },

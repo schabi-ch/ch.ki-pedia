@@ -25,16 +25,37 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Claude / API-Key
+## AI / API-Key
 
 Die API-Konfiguration wird aus **backend/.env** geladen.
 
+### Anthropic Claude
+
 ```env
+AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=dein_key_hier
 
 # Optional (Default)
 CLAUDE_MODEL=claude-haiku-4-5-20251001
 ```
+
+### Google Gemini
+
+```env
+AI_PROVIDER=gemini
+GEMINI_PROJECT_ID=dein_google_cloud_project
+GEMINI_LOCATION=us-central1
+GEMINI_API_KEY=dein_vertex_api_key_hier
+
+# Optional (Default)
+GEMINI_MODEL=gemini-2.0-flash-001
+```
+
+Die Gemini-Anbindung nutzt das offizielle Google Gen AI SDK (`@google/genai`) fuer Vertex AI mit dem regionalen Endpunkt
+`https://<location>-aiplatform.googleapis.com/v1/projects/<project>/locations/<location>/publishers/google/models/<model>:streamGenerateContent`.
+Wenn `GEMINI_API_KEY` gesetzt ist, verwendet das Backend den regionalen Vertex-AI-REST-Endpunkt direkt mit diesem API-Key. Wenn `GEMINI_API_KEY` nicht gesetzt ist, verwendet das Backend weiterhin das offizielle Google Gen AI SDK (`@google/genai`) mit Google Application Default Credentials, z. B. aus `gcloud auth application-default login` oder `GOOGLE_APPLICATION_CREDENTIALS`.
+
+Wenn `AI_PROVIDER` nicht gesetzt ist, verwendet das Backend `anthropic`.
 
 ## Project setup
 

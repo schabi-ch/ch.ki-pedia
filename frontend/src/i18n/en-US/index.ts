@@ -11,6 +11,11 @@ export default {
     darkModeTooltip: 'Enable dark mode',
     lightModeTooltip: 'Enable light mode',
   },
+  footer: {
+    about: 'About this page',
+    imprint: 'Imprint',
+    privacy: 'Privacy policy',
+  },
   search: {
     placeholder: 'Search Wikipedia…',
     button: 'Search',
@@ -33,9 +38,10 @@ export default {
     },
     loading: 'Loading article…',
     simplifying: 'Simplifying text…',
+    cancelSimplify: 'Stop simplification',
     simplifiedDone: 'The text has now been rewritten.',
     translating: 'Translating article…',
-      tocTitle: 'Inhaltsverzeichnis anzeigen',
+    tocTitle: 'Inhaltsverzeichnis anzeigen',
     fontSize: {
       standard: 'Standard',
       large: 'Larger',
@@ -120,6 +126,7 @@ export default {
     title: 'Ask questions',
     placeholder: 'Ask something about this article…',
     send: 'Send',
+    stop: 'Stop response',
     you: 'You',
     assistant: 'ki-pedia',
   },

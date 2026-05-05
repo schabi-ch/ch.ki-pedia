@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page class="q-pa-md article-page">
     <div class="article-wrapper">
       <div v-if="store.articleLoading" class="row justify-center q-mt-xl">
         <div class="text-center">
@@ -14,18 +14,17 @@
 
       <div v-else-if="store.article">
         <div class="article-header q-mb-md">
-          <div>
-            <q-btn v-if="!store.tocOpen" flat dense icon="toc" :label="$t('article.tocTitle')"
+          <div class="article-toc-trigger">
+            <q-btn v-if="!store.tocOpen" :key="tocButtonLabel" flat dense icon="toc" :label="tocButtonLabel"
               @click="store.setTocOpen(true)" no-caps />
           </div>
           <div class="article-title">{{ store.article.title }}</div>
           <div class="article-header-bar">
             <div class="article-header-meta">
-
               <span v-if="langCount > 0" class="text-caption text-grey-6 article-lang-info">
                 {{ $t('article.langLabelStart') }}
-                <a href="#" class="article-lang-link" @click.prevent>{{ langCountLabel }}<q-menu anchor="bottom left"
-                    self="top left" class="lang-menu">
+                <a href="#" class="article-lang-link" @click.prevent>{{ langCountLabel
+                  }}<q-menu anchor="bottom left" self="top left" class="lang-menu">
                     <q-list dense style="min-width: 200px; max-height: 400px" class="scroll">
                       <q-item v-for="opt in articleLangOptions" :key="opt.value" clickable v-close-popup
                         :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
@@ -39,7 +38,6 @@
                 </a>
                 {{ $t('article.langLabelEnd') }}
               </span>
-
             </div>
             <div class="article-header-actions row items-center q-gutter-sm no-wrap">
               <q-btn v-if="showTranslateButton" color="primary" dense no-caps unelevated :label="translateButtonLabel"
@@ -55,19 +53,46 @@
 
         <q-card flat class="article-card">
           <q-card-section class="article-card-inner">
-            <div v-if="infoboxOpen && store.article?.infoboxHtml" class="infobox-float">
-              <q-btn flat dense round icon="close" size="sm" class="infobox-close" @click="infoboxOpen = false" />
-              <div v-html="store.article.infoboxHtml" />
+            <div v-if="store.article?.infoboxHtml" class="infobox-print">
+              <div class="infobox-header">
+                <div class="infobox-title">Info-Box</div>
+              </div>
+              <div class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
-            <div v-if="store.simplifyLoading || store.translateLoading" class="text-center q-py-lg">
+            <div v-if="infoboxOpen && store.article?.infoboxHtml" class="infobox-float">
+              <div class="infobox-header">
+                <div class="infobox-title">Info-Box</div>
+                <q-btn flat dense round icon="close" size="sm" class="infobox-close" @click="infoboxOpen = false" />
+              </div>
+              <div class="infobox-body" v-html="store.article.infoboxHtml" />
+            </div>
+
+            <div v-if="store.translateLoading" class="text-center q-py-lg">
               <q-spinner color="primary" />
               <div class="text-grey-6 q-mt-sm">
-                {{ store.translateLoading ? $t('article.translating') : $t('article.simplifying') }}
+                {{ $t('article.translating') }}
               </div>
             </div>
-            <div v-else class="article-content text-body1" :class="articleFontSizeClass" ref="articleContentRef">
-              <q-markdown :src="store.displayedContent" class="article-markdown" />
+            <div v-else>
+              <div v-if="store.simplifyLoading" class="text-center q-py-sm">
+                <q-spinner color="primary" />
+                <div class="text-grey-6 q-mt-sm">
+                  {{ $t('article.simplifying') }}
+                </div>
+                <q-btn flat dense no-caps color="negative" icon="stop" :label="$t('article.cancelSimplify')"
+                  class="q-mt-sm" @click="store.abortSimplifyStream()" />
+              </div>
+              <div v-if="hasInfobox && !infoboxOpen" class="info-button-float">
+                <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab" @click="infoboxOpen = true" />
+              </div>
+              <div class="article-content text-body1" :class="articleFontSizeClass" ref="articleContentRef">
+                <q-markdown :src="store.displayedContent" class="article-markdown" />
+              </div>
+              <div v-if="store.simplifyLoading" class="simplify-cancel-bottom">
+                <q-btn flat no-caps color="negative" icon="stop" :label="$t('article.cancelSimplify')"
+                  @click="store.abortSimplifyStream()" />
+              </div>
             </div>
           </q-card-section>
         </q-card>
@@ -82,8 +107,6 @@
         <q-btn fab icon="tune" color="secondary" class="level-fab fab-modern"
           @click="levelSliderOpen = !levelSliderOpen" />
         <q-btn v-if="!chatOpen" fab icon="chat" color="primary" class="chat-fab fab-modern" @click="chatOpen = true" />
-        <q-btn v-if="hasInfobox && !infoboxOpen" fab icon="info" color="accent" class="info-fab fab-modern"
-          @click="infoboxOpen = true" />
         <floating-chat v-if="chatOpen" @close="chatOpen = false" />
       </div>
     </div>
@@ -118,10 +141,16 @@ export default defineComponent({
             binding.value();
           }
         };
-        document.addEventListener('click', (el as HTMLElement & { _clickOutside: (e: Event) => void })._clickOutside);
+        document.addEventListener(
+          'click',
+          (el as HTMLElement & { _clickOutside: (e: Event) => void })._clickOutside,
+        );
       },
       unmounted (el: HTMLElement) {
-        document.removeEventListener('click', (el as HTMLElement & { _clickOutside: (e: Event) => void })._clickOutside);
+        document.removeEventListener(
+          'click',
+          (el as HTMLElement & { _clickOutside: (e: Event) => void })._clickOutside,
+        );
       },
     },
   },
@@ -149,15 +178,18 @@ export default defineComponent({
       return t('article.availableLanguagesLinkN', { count });
     });
 
+    const tocButtonLabel = computed(() => t('article.tocTitle'));
+
     const showTranslateButton = computed(() => {
       return store.articleLang !== uiWikiLang.value;
     });
 
     const translateButtonLabel = computed(() => {
       const loc = locale.value;
-      const displayNames = typeof Intl.DisplayNames === 'function'
-        ? new Intl.DisplayNames([loc], { type: 'language' })
-        : null;
+      const displayNames =
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames([loc], { type: 'language' })
+          : null;
       const langKey = `languages.${uiWikiLang.value}`;
       let langName: string;
       // Use i18n key first, then Intl.DisplayNames as fallback
@@ -183,13 +215,20 @@ export default defineComponent({
       return 'article-font-standard';
     });
 
-    watch(() => store.readingLevel, (level) => {
-      levelIndex.value = LEVEL_ORDER.indexOf(level);
-    });
+    watch(
+      () => store.readingLevel,
+      (level) => {
+        levelIndex.value = LEVEL_ORDER.indexOf(level);
+      },
+    );
 
-    watch(() => store.article?.title, (title) => {
-      document.title = title ? `${title} – ki-pedia` : 'ki-pedia';
-    }, { immediate: true });
+    watch(
+      () => store.article?.title,
+      (title) => {
+        document.title = title ? `${title} – ki-pedia` : 'ki-pedia';
+      },
+      { immediate: true },
+    );
 
     onBeforeUnmount(() => {
       document.title = 'ki-pedia';
@@ -209,6 +248,7 @@ export default defineComponent({
       currentLevelLabel,
       closeLevelSlider,
       articleFontSizeClass,
+      tocButtonLabel,
       uiWikiLang,
       langCount,
       langCountLabel,
@@ -227,9 +267,10 @@ export default defineComponent({
       const langs = this.store.articleLanguages;
       const key = (code: string) => `languages.${code}`;
       const locale = this.$i18n.locale;
-      const displayNames = typeof Intl.DisplayNames === 'function'
-        ? new Intl.DisplayNames([locale], { type: 'language' })
-        : null;
+      const displayNames =
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames([locale], { type: 'language' })
+          : null;
       const labelFor = (code: string) => {
         if (this.$te(key(code))) {
           return this.$t(key(code));
@@ -238,8 +279,9 @@ export default defineComponent({
         const normalizedCode = code.replace(/_/g, '-');
         let intlLabel: string | undefined;
         try {
-          intlLabel = displayNames?.of(normalizedCode)
-            ?? displayNames?.of(normalizedCode.split('-')[0] ?? normalizedCode);
+          intlLabel =
+            displayNames?.of(normalizedCode) ??
+            displayNames?.of(normalizedCode.split('-')[0] ?? normalizedCode);
         } catch {
           // Wikipedia language codes (e.g. "simple", "bat-smg") may not be valid BCP 47 tags
         }
@@ -381,6 +423,39 @@ export default defineComponent({
   }
 }
 
+@media print {
+  .article-page {
+    padding: 0 !important;
+  }
+
+  .article-wrapper {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .article-header {
+    margin-bottom: 12px !important;
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  .article-toc-trigger {
+    display: none !important;
+  }
+
+  .article-card {
+    overflow: visible;
+    break-before: avoid-page;
+    page-break-before: avoid;
+  }
+
+  .article-card-inner {
+    break-before: avoid-page;
+    page-break-before: avoid;
+  }
+}
+
 .article-card {
   background: var(--kp-surface);
   box-shadow: var(--kp-shadow-lg);
@@ -393,6 +468,12 @@ export default defineComponent({
   padding: 32px 40px;
 }
 
+.article-card-inner::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
 @media (max-width: 600px) {
   .article-card-inner {
     padding: 20px 16px;
@@ -401,7 +482,6 @@ export default defineComponent({
 
 .article-content {
   line-height: 1.7;
-  display: flow-root;
 }
 
 .article-font-standard {
@@ -418,6 +498,12 @@ export default defineComponent({
 
 .article-markdown {
   display: contents;
+}
+
+.simplify-cancel-bottom {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
 }
 
 .article-content :deep(h1),
@@ -459,20 +545,15 @@ export default defineComponent({
 
 .fab-modern:hover {
   transform: scale(1.08);
-  box-shadow: 0 12px 40px rgba(82, 40, 129, 0.2), 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 12px 40px rgba(82, 40, 129, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .chat-fab {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 5999;
-}
-
-.info-fab {
-  position: fixed;
-  bottom: 24px;
-  right: 88px;
   z-index: 5999;
 }
 
@@ -521,42 +602,130 @@ export default defineComponent({
 .infobox-float {
   float: right;
   position: relative;
-  top: 70px;
+  width: min(360px, 50%);
+  max-width: 50%;
+  max-height: min(72vh, 760px);
   margin: 0 0 16px 16px;
-  padding: 16px;
   border: 1px solid rgba(82, 40, 129, 0.08);
   border-radius: 14px;
   background: var(--kp-surface);
   box-shadow: var(--kp-shadow-sm);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   z-index: 1;
 }
 
-.infobox-float :deep(table) {
+.infobox-print {
+  display: none;
+}
+
+.info-button-float {
+  float: right;
+  margin: 0 0 16px 16px;
+}
+
+.info-inline-fab {
+  position: relative;
+  z-index: 2;
+}
+
+.infobox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px 16px;
+  border-bottom: 1px solid rgba(82, 40, 129, 0.08);
+  flex: 0 0 auto;
+}
+
+.infobox-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--kp-text-primary);
+}
+
+.infobox-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+}
+
+.infobox-body :deep(table) {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
 }
 
-.infobox-float :deep(img) {
+.infobox-body :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
 }
 
-.infobox-float :deep(a) {
+.infobox-body :deep(a) {
   color: var(--q-primary);
   text-decoration: underline;
 }
 
 .infobox-close {
-  float: right;
-  margin: -4px -4px 4px 4px;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 600px) {
+  .info-button-float {
+    float: none;
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 16px;
+  }
+
   .infobox-float {
     float: none;
+    width: 100%;
     max-width: 100%;
+    max-height: 64vh;
     margin: 0 0 16px 0;
+  }
+}
+
+@media print {
+
+  .info-button-float,
+  .infobox-float {
+    display: none !important;
+  }
+
+  .infobox-print {
+    display: block;
+    width: 100%;
+    max-width: none;
+    margin: 0 0 24px;
+    border: 1px solid #ccc;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .infobox-print .infobox-header {
+    padding: 0 0 10px;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .infobox-print .infobox-body {
+    overflow: visible;
+    max-height: none;
+    padding: 12px 0 0;
+  }
+
+  .infobox-print .infobox-body :deep(a) {
+    color: inherit;
+    text-decoration: none;
   }
 }
 </style>

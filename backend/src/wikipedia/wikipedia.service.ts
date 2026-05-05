@@ -11,6 +11,7 @@ interface WikiGeneratorSearchPage {
   pageid: number;
   title: string;
   index?: number;
+  terms?: { description?: string[] };
   thumbnail?: { source?: string };
 }
 
@@ -35,6 +36,7 @@ interface WikiExtractResponse {
 
 export interface WikiSearchResult {
   title: string;
+  description: string;
   snippet: string;
   pageid: number;
   thumbnail: string | null;
@@ -71,6 +73,36 @@ interface WikiPrefixResponse {
 
 @Injectable()
 export class WikipediaService {
+  private static readonly NON_ARTICLE_NAMESPACES = new Set([
+    'category',
+    'catégorie',
+    'categoria',
+    'datei',
+    'file',
+    'fichier',
+    'help',
+    'hilfe',
+    'image',
+    'kategorie',
+    'media',
+    'mediawiki',
+    'module',
+    'modul',
+    'modèle',
+    'portal',
+    'portail',
+    'portale',
+    'project',
+    'special',
+    'spezial',
+    'template',
+    'user',
+    'utente',
+    'utilisateur',
+    'vorlage',
+    'wikipedia',
+  ]);
+
   private readonly supportedLangs = ['en', 'de', 'fr', 'it', 'rm'];
   private readonly turndown = new TurndownService({
     headingStyle: 'atx',
@@ -85,7 +117,7 @@ export class WikipediaService {
         node.nodeName === 'DIV' &&
         node.getAttribute('data-keep-html') === 'true',
       replacement: (_content, node) => {
-        const el = node as HTMLElement;
+        const el = node;
         el.removeAttribute('data-keep-html');
         return '\n\n' + el.outerHTML + '\n\n';
       },
@@ -119,7 +151,10 @@ export class WikipediaService {
       .join(', ');
   }
 
-  private sanitizeWikipediaHtml(html: string, lang: string): { html: string; title?: string; infoboxHtml: string } {
+  private sanitizeWikipediaHtml(
+    html: string,
+    lang: string,
+  ): { html: string; title?: string; infoboxHtml: string } {
     const origin = this.toWikiOrigin(lang);
     const $ = cheerio.load(html);
 
@@ -128,11 +163,6 @@ export class WikipediaService {
 
     // Mark Begriffsklärungshinweis div to keep as raw HTML
     $('#Vorlage_Begriffsklärungshinweis').attr('data-keep-html', 'true');
-
-    // Extract infobox before markdown conversion
-    const infoboxEl = $('.infobox').first();
-    const infoboxHtml = infoboxEl.length ? $.html(infoboxEl) : '';
-    infoboxEl.remove();
 
     // Make links absolute and rewrite Wikipedia article links to internal routes.
     $('a[href]').each((_, el) => {
@@ -172,10 +202,22 @@ export class WikipediaService {
         const afterPrefix = href.slice(wikiPrefix.length);
         const titlePart = afterPrefix.split(/[?#]/, 1)[0] ?? '';
         try {
-          const decodedTitle = decodeURIComponent(titlePart).replace(/_/g, ' ').trim();
+          const decodedTitle = decodeURIComponent(titlePart)
+            .replace(/_/g, ' ')
+            .trim();
+          if (this.isNonArticleWikiTitle(decodedTitle)) {
+            const namespace = this.getWikiNamespace(decodedTitle);
+            if (this.shouldKeepAsExternalWikiLink(namespace)) {
+              $(el).attr('href', href);
+              $(el).attr('target', '_blank');
+              $(el).attr('rel', 'noopener noreferrer');
+              return;
+            }
+            $(el).remove();
+            return;
+          }
           if (decodedTitle) {
-            // Hash-mode router: internal route is #/article/:title
-            $(el).attr('href', `#/article/${encodeURIComponent(decodedTitle)}`);
+            $(el).attr('href', `/article/${encodeURIComponent(decodedTitle)}`);
             $(el).removeAttr('target');
             $(el).removeAttr('rel');
             return;
@@ -215,6 +257,11 @@ export class WikipediaService {
       $(el).attr('srcset', this.rewriteSrcset(srcset));
     });
 
+    // Extract infobox after link and media normalization so infoboxHtml stays usable.
+    const infoboxEl = $('.infobox').first();
+    const infoboxHtml = infoboxEl.length ? $.html(infoboxEl) : '';
+    infoboxEl.remove();
+
     // Pre-process tables for cleaner Markdown conversion.
     $('table').each((_, tableEl) => {
       // Move <caption> text above the table as a bold paragraph.
@@ -228,14 +275,16 @@ export class WikipediaService {
         caption.remove();
       }
       // Unwrap <figure> in table cells to a plain <img> so pipe tables stay clean.
-      $(tableEl).find('td figure, th figure').each((_, fig) => {
-        const img = $(fig).find('img').first();
-        if (img.length) {
-          $(fig).replaceWith(img);
-        } else {
-          $(fig).remove();
-        }
-      });
+      $(tableEl)
+        .find('td figure, th figure')
+        .each((_, fig) => {
+          const img = $(fig).find('img').first();
+          if (img.length) {
+            $(fig).replaceWith(img);
+          } else {
+            $(fig).remove();
+          }
+        });
       // Remove citation superscripts inside table cells for cleaner output.
       $(tableEl).find('td sup.reference, th sup.reference').remove();
     });
@@ -244,8 +293,28 @@ export class WikipediaService {
 
     // Return body contents if present, otherwise the whole document.
     const body = $('body');
-    const outHtml = body.length ? body.html() ?? '' : $.html();
+    const outHtml = body.length ? (body.html() ?? '') : $.html();
     return { html: outHtml, title, infoboxHtml };
+  }
+
+  private isNonArticleWikiTitle(title: string): boolean {
+    const namespace = this.getWikiNamespace(title);
+    return namespace
+      ? WikipediaService.NON_ARTICLE_NAMESPACES.has(namespace)
+      : false;
+  }
+
+  private getWikiNamespace(title: string): string | undefined {
+    return title
+      .match(/^([^:]+):/)?.[1]
+      ?.trim()
+      .toLowerCase();
+  }
+
+  private shouldKeepAsExternalWikiLink(namespace: string | undefined): boolean {
+    return ['datei', 'file', 'fichier', 'image', 'media'].includes(
+      namespace ?? '',
+    );
   }
 
   private convertHtmlToMarkdown(html: string): string {
@@ -259,9 +328,10 @@ export class WikipediaService {
       generator: 'search',
       gsrsearch: query,
       gsrlimit: '10',
-      prop: 'pageimages',
+      prop: 'pageimages|pageterms',
       piprop: 'thumbnail',
       pithumbsize: '80',
+      wbptterms: 'description',
       format: 'json',
       origin: '*',
     });
@@ -284,6 +354,7 @@ export class WikipediaService {
       })
       .map((page) => ({
         title: page.title,
+        description: page.terms?.description?.[0] ?? '',
         snippet: '',
         pageid: page.pageid,
         thumbnail: page.thumbnail?.source ?? null,
@@ -300,7 +371,7 @@ export class WikipediaService {
       {
         headers: {
           // Helps Wikipedia return a consistent representation.
-          'accept': 'text/html; charset=utf-8',
+          accept: 'text/html; charset=utf-8',
         },
       },
     );
@@ -313,8 +384,11 @@ export class WikipediaService {
       );
     }
     const rawHtml = await htmlRes.text();
-    const { html: contentHtml, title: extractedTitle, infoboxHtml } =
-      this.sanitizeWikipediaHtml(rawHtml, safeLang);
+    const {
+      html: contentHtml,
+      title: extractedTitle,
+      infoboxHtml,
+    } = this.sanitizeWikipediaHtml(rawHtml, safeLang);
     const contentMarkdown = this.convertHtmlToMarkdown(contentHtml);
 
     const finalTitle = extractedTitle ?? title;
@@ -344,7 +418,10 @@ export class WikipediaService {
 
     const response = await fetch(`${baseUrl}?${params}`);
     if (!response.ok) {
-      throw new Error(`Wikipedia API error: ${response.status}`);
+      if (response.status === 429) {
+        return [];
+      }
+      throw new BadGatewayException(`Wikipedia API error: ${response.status}`);
     }
     const data = (await response.json()) as WikiPrefixResponse;
 
@@ -389,10 +466,7 @@ export class WikipediaService {
     }
     const data = (await response.json()) as {
       query?: {
-        pages?: Record<
-          string,
-          { langlinks?: { lang: string; '*': string }[] }
-        >;
+        pages?: Record<string, { langlinks?: { lang: string; '*': string }[] }>;
       };
     };
 
@@ -403,9 +477,7 @@ export class WikipediaService {
     const links = page?.langlinks ?? [];
 
     // Include the source language itself
-    const result: { lang: string; title: string }[] = [
-      { lang, title },
-    ];
+    const result: { lang: string; title: string }[] = [{ lang, title }];
 
     for (const link of links) {
       result.push({ lang: link.lang, title: link['*'] });

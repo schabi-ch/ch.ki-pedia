@@ -7,6 +7,26 @@ Dieses Repo kann mit **npm** oder **Yarn** verwendet werden.
 
 ## Lokal starten
 
+### Full stack mit einem Befehl
+
+```bash
+npm run dev
+```
+
+Der Root-Befehl startet Backend und Frontend zusammen und prueft vorher, ob Port `3000` oder `9000` schon von einem alten Prozess belegt sind. Falls ja, bricht er mit einer klaren Meldung ab, statt spaeter im Browser einen schwerer lesbaren Proxy- oder 404-Fehler zu erzeugen.
+
+Status der Dev-Prozesse:
+
+```bash
+npm run dev:status
+```
+
+Wenn ein alter Prozess auf Port `3000` oder `9000` haengen geblieben ist, kannst du beide Dev-Ports gezielt freiraeumen und die Umgebung sofort neu starten:
+
+```bash
+npm run dev:reset
+```
+
 ### Backend (NestJS)
 
 ```bash

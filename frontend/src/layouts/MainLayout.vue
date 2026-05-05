@@ -2,11 +2,22 @@
   <q-layout view="hHh LpR lfr">
     <q-header class="header-glass">
       <q-toolbar style="height: 60px;">
-        <img src="~assets/img/logo-ki-pedia.png" class="q-mr-sm header-logo" />
+        <router-link v-if="showHeaderBrand" to="/" class="header-brand" :aria-label="$t('search.placeholder')">
+          <!-- <img src="~assets/img/logo-ki-pedia.png" class="q-mr-sm header-logo" /> -->
 
-        <img v-if="currentLocale == 'de'" src="~assets/img/title-ki-pedia.svg" class="header-title"
-          style="height: 32px;" />
-        <img v-else src="~assets/img/title-wikiped-ia.svg" class="header-title" style="height: 32px;" />
+          <!-- <img v-if="currentLocale == 'de'" src="~assets/img/title-ki-pedia.svg" class="header-title"
+            style="height: 32px;" />
+          <img v-else src="~assets/img/title-wikiped-ia.svg" class="header-title" style="height: 32px;" /> -->
+
+          <div class="header-title-text">
+            <template v-if="currentLocale === 'de'">
+              <span style="color: #A58AC5;">wi</span>ki-pedia<span style="color: #A58AC5;">.</span>
+            </template>
+            <template v-else>
+              wikiped-IA<span style="color: #A58AC5;">.</span>
+            </template>
+          </div>
+        </router-link>
 
         <q-space />
         <q-form v-if="isArticlePage" class="row items-center q-gutter-sm" @submit.prevent="onSearch">
@@ -33,8 +44,8 @@
                     <q-avatar rounded size="40px" color="grey-2" text-color="grey-5" icon="article" v-else />
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label lines="1" class="text-weight-bold">{{ item.title }}</q-item-label>
-                    <q-item-label lines="1" caption class="ellipsis">{{ item.description }}</q-item-label>
+                    <q-item-label class="text-weight-bold">{{ item.title }}</q-item-label>
+                    <q-item-label caption class="header-suggestion-description">{{ item.description }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -99,9 +110,9 @@
     <q-footer class="page-footer">
       <q-toolbar class="footer-toolbar">
         <div class="footer-links">
-          <router-link to="/about" class="footer-link">Informationen über diese Seite</router-link>
-          <router-link to="/imprint" class="footer-link">Impressum</router-link>
-          <router-link to="/privacy" class="footer-link">Datenschutzerklärung</router-link>
+          <router-link to="/about" class="footer-link">{{ $t('footer.about') }}</router-link>
+          <router-link to="/imprint" class="footer-link">{{ $t('footer.imprint') }}</router-link>
+          <router-link to="/privacy" class="footer-link">{{ $t('footer.privacy') }}</router-link>
         </div>
       </q-toolbar>
     </q-footer>
@@ -113,7 +124,7 @@ import { defineComponent, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import { saveLocale, getSavedLocale } from 'boot/i18n';
+import { saveLocale } from 'boot/i18n';
 import { useWikipediaStore, type FontSizeLevel } from 'stores/wikipedia';
 import ArticleToc from 'components/ArticleToc.vue';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
@@ -162,7 +173,8 @@ export default defineComponent({
       { label: 'English', value: 'en-US' },
     ];
 
-    const currentLocale = ref(getSavedLocale());
+    const currentLocale = computed(() => locale.value);
+    const showHeaderBrand = computed(() => $q.screen.gt.xs);
     const currentLocaleLabel = computed(() => {
       return localeOptions.find((option) => option.value === currentLocale.value)?.label ?? currentLocale.value;
     });
@@ -174,6 +186,10 @@ export default defineComponent({
     $q.dark.set(isDark.value);
 
     function onLocaleChange (val: string) {
+      if (locale.value === val) {
+        return;
+      }
+
       locale.value = val;
       saveLocale(val);
     }
@@ -208,6 +224,7 @@ export default defineComponent({
       router,
       localeOptions,
       currentLocale,
+      showHeaderBrand,
       currentLocaleLabel,
       localeTooltipLabel,
       isDark,
@@ -297,6 +314,28 @@ export default defineComponent({
   text-decoration: none;
 }
 
+.header-brand {
+  display: flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.header-logo,
+.header-title {
+  display: block;
+}
+
+.header-title-text {
+  font-family: 'SpaceGrotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
 .header-search {
   min-width: 200px;
 }
@@ -350,6 +389,11 @@ export default defineComponent({
   overflow-wrap: anywhere;
 }
 
+.header-suggestion-description {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .body--dark .header-suggestions-dropdown {
   color: #f4f5f8;
 }
@@ -372,6 +416,12 @@ export default defineComponent({
 
 .suggestion-thumb {
   min-width: 48px !important;
+}
+
+.suggestion-thumb :deep(.q-avatar__content img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .locale-menu-button {
@@ -433,7 +483,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 0;
   width: 100%;
   min-height: 56px;
   flex-wrap: wrap;
@@ -451,6 +501,15 @@ export default defineComponent({
   color: rgba(54, 38, 83, 0.94);
 }
 
+.footer-link+.footer-link::before {
+  content: '·';
+  margin-left: 24px;
+  margin-right: 24px;
+  color: rgba(54, 38, 83, 0.4);
+  font-weight: bold;
+  pointer-events: none;
+}
+
 .body--dark .footer-link {
   color: rgba(241, 243, 249, 0.68);
 }
@@ -460,10 +519,22 @@ export default defineComponent({
   color: rgba(255, 255, 255, 0.92);
 }
 
+.body--dark .footer-link+.footer-link::before {
+  color: rgba(241, 243, 249, 0.35);
+}
+
 @media (max-width: 700px) {
   .footer-links {
-    gap: 12px 18px;
-    justify-content: flex-start;
+    justify-content: center;
+  }
+
+  .footer-link {
+    font-size: 0.78rem;
+  }
+
+  .footer-link+.footer-link::before {
+    margin-left: 18px;
+    margin-right: 18px;
   }
 }
 </style>

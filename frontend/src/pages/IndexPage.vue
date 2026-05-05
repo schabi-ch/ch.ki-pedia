@@ -3,7 +3,12 @@
     <div class="hero-section" v-if="!store.searchQuery">
       <div class="col-12 col-md-8 text-center hero-content">
         <div class="hero-title text-primary q-mb-xs">
-          <span style="color: #DBDDF1;">wi</span>ki-pedia
+          <template v-if="$i18n.locale === 'de'">
+            <span style="color: #CED1EC;">wi</span>ki-pedia<span style="color: #CED1EC;">.</span>
+          </template>
+          <template v-else>
+            wikiped-IA<span style="color: #CED1EC;">.</span>
+          </template>
         </div>
         <div class="hero-tagline q-mb-xl">
           {{ $t('app.tagline') }}
@@ -37,14 +42,14 @@
               </q-list>
             </q-card>
           </div>
-          <q-btn color="primary" icon="search" :label="$t('search.button')" type="submit" :loading="store.searchLoading"
-            rounded unelevated class="search-btn" no-caps />
+          <!-- <q-btn color="primary" icon="search" :label="$t('search.button')" type="submit" :loading="store.searchLoading"
+            rounded unelevated class="search-btn" no-caps /> -->
         </q-form>
       </div>
     </div>
 
     <div v-else>
-      <div class="row items-center q-mb-md q-gutter-sm">
+      <div class="row items-center q-my-md q-gutter-sm">
         <q-form @submit.prevent="onSearch" class="row items-center q-gutter-sm">
           <q-input v-model="searchInput" outlined dense :placeholder="$t('search.placeholder')" class="search-input" />
           <q-btn color="primary" icon="search" dense type="submit" :loading="store.searchLoading" no-caps />
@@ -59,30 +64,23 @@
         {{ store.searchError }}
       </q-banner>
 
-      <div class="results-list" v-if="store.searchResults.length">
-        <q-card v-for="result in store.searchResults" :key="result.pageid" flat class="result-card q-mb-sm" clickable
-          @click="openArticle(result.title)">
-          <q-card-section horizontal class="items-center">
-            <q-item-section avatar class="suggestion-thumb q-ml-md">
-              <q-avatar rounded size="48px" v-if="result.thumbnail">
+      <q-card v-if="store.searchResults.length" flat class="results-list">
+        <q-list separator>
+          <q-item v-for="result in store.searchResults" :key="result.pageid" clickable v-ripple :active="false"
+            @click="openArticle(result.title)">
+            <q-item-section avatar class="suggestion-thumb">
+              <q-avatar rounded size="40px" v-if="result.thumbnail">
                 <img :src="result.thumbnail" :alt="result.title" />
               </q-avatar>
-              <q-avatar rounded size="48px" color="grey-2" text-color="grey-5" icon="article" v-else />
+              <q-avatar rounded size="40px" color="grey-2" text-color="grey-5" icon="article" v-else />
             </q-item-section>
-            <q-card-section class="col">
-              <div class="text-primary text-weight-medium text-body1">
-                {{ result.title }}
-              </div>
-              <div class="text-caption text-grey-7 q-mt-xs" style="line-height: 1.4;">
-                {{ result.snippet }}
-              </div>
-            </q-card-section>
-            <q-card-section side>
-              <q-icon name="arrow_forward" color="primary" />
-            </q-card-section>
-          </q-card-section>
-        </q-card>
-      </div>
+            <q-item-section>
+              <q-item-label class="text-weight-bold">{{ result.title }}</q-item-label>
+              <q-item-label caption class="result-description">{{ result.description || result.snippet }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card>
 
       <div v-else-if="!store.searchLoading" class="text-center text-grey-6 q-mt-xl">
         {{ $t('search.noResults', { query: store.searchQuery }) }}
@@ -193,8 +191,8 @@ export default defineComponent({
 }
 
 .hero-title {
-  font-size: 3.2rem;
-  font-weight: 700;
+  font-family: 'SpaceGrotesk', sans-serif;
+  font-size: 4.2rem;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
@@ -271,23 +269,32 @@ export default defineComponent({
   min-width: 48px !important;
 }
 
-.result-card {
-  background: var(--kp-surface);
-  box-shadow: var(--kp-shadow-sm);
-  border-radius: 14px;
-  border: 1px solid rgba(82, 40, 129, 0.05);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.suggestion-thumb :deep(.q-avatar__content img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.result-card:hover {
+.results-list {
+  border-radius: 16px;
+  background: var(--kp-surface);
   box-shadow: var(--kp-shadow-lg);
-  transform: translateY(-1px);
+  border: 1px solid rgba(82, 40, 129, 0.08);
+}
+
+.results-list :deep(.q-item__label--caption) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.result-description {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 600px) {
   .hero-title {
-    font-size: 2.2rem;
+    font-size: 3rem;
   }
 
   .hero-section {

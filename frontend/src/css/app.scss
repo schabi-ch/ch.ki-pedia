@@ -1,4 +1,15 @@
 //////////////////////////////////////////////////////////////////////////////////
+// Fonts
+//////////////////////////////////////////////////////////////////////////////////
+
+@font-face {
+  font-family: 'SpaceGrotesk';
+  src: url('/fonts/SpaceGrotesk-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
 // Layout
 //////////////////////////////////////////////////////////////////////////////////
 ///
@@ -178,6 +189,8 @@ body[lang='de'],
   .level-fab,
   .level-slider-panel,
   .floating-chat,
+  .q-footer,
+  .page-footer,
   .article-header-bar,
   .infobox-float,
   .fab-modern {
@@ -233,11 +246,14 @@ body[lang='de'],
     page-break-inside: avoid;
   }
 
-  // Links: show URL after text
+  // Links: print like normal text
+  .article-content a[href] {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
   .article-content a[href]::after {
-    content: ' (' attr(href) ')';
-    font-size: 0.85em;
-    color: #666;
+    content: none !important;
   }
 
   // Prevent page breaks inside headings

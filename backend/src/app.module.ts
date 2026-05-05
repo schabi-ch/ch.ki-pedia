@@ -20,9 +20,9 @@ import { join } from 'path';
     ServeStaticModule.forRoot({
       // Wir gehen davon aus, dass du die Quasar-Dateien in einen 'public' Ordner packst
       // '..' ist wichtig, da der Code später im 'dist'-Ordner ausgeführt wird!
-      rootPath: join(__dirname, '..', 'public'), 
+      rootPath: join(__dirname, '..', 'public'),
       // Damit NestJS bei /api/... nicht nach statischen Dateien sucht:
-      exclude: ['/api/{*path}'], 
+      exclude: ['/api/{*path}'],
     }),
     HealthModule,
     WikipediaModule,

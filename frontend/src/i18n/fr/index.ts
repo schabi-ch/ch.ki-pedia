@@ -11,6 +11,11 @@ export default {
     darkModeTooltip: 'Activer le mode sombre',
     lightModeTooltip: 'Activer le mode clair',
   },
+  footer: {
+    about: 'À propos de ce site',
+    imprint: 'Mentions légales',
+    privacy: 'Protection des données',
+  },
   search: {
     placeholder: 'Rechercher sur Wikipédia…',
     button: 'Rechercher',
@@ -33,9 +38,10 @@ export default {
     },
     loading: "Chargement de l'article…",
     simplifying: 'Simplification du texte…',
+    cancelSimplify: 'Arrêter la simplification',
     simplifiedDone: 'Le texte a maintenant ete reformule.',
     translating: "Traduction de l'article…",
-      tocTitle: 'Inhaltsverzeichnis anzeigen',
+    tocTitle: 'Inhaltsverzeichnis anzeigen',
     fontSize: {
       standard: 'Standard',
       large: 'Plus grand',
@@ -120,6 +126,7 @@ export default {
     title: 'Poser des questions',
     placeholder: 'Posez une question sur cet article…',
     send: 'Envoyer',
+    stop: 'Arrêter la réponse',
     you: 'Vous',
     assistant: 'ki-pedia',
   },
