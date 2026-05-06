@@ -8,12 +8,12 @@ Der Frontend-Store MUSS alle erzeugten Artikelversionen im Quasar SessionStorage
 
 - **WHEN** ein Wikipedia-Artikel erfolgreich geladen wird
 - **THEN** wird die Markdown-Version als `original`-Stufe für die aktuelle Sprache im SessionStorage gespeichert
-- **THEN** lautet der Cache-Key `wiki:<articleTitle>:<lang>:<level>`
+- **THEN** lautet der Cache-Key `wiki:<articleTitle>:<lang>:<variant>`
 
 #### Scenario: Vereinfachte Version wird gecacht
 
 - **WHEN** eine vereinfachte Version eines Artikels von der AI generiert wird
-- **THEN** wird diese Version unter dem entsprechenden Key im SessionStorage gespeichert (z.B. `wiki:Albert Einstein:de:simplified`)
+- **THEN** wird diese Version unter dem entsprechenden Key im SessionStorage gespeichert (z.B. `wiki:Albert Einstein:de:cefr:a1` oder `wiki:Albert Einstein:de:grade:6`)
 
 #### Scenario: Übersetzte Version wird gecacht
 
@@ -22,23 +22,31 @@ Der Frontend-Store MUSS alle erzeugten Artikelversionen im Quasar SessionStorage
 
 #### Scenario: Gecachte Version wird wiederverwendet
 
-- **WHEN** der Benutzer eine bereits generierte Version auswählt (gleiche Lesestufe und Sprache)
+- **WHEN** der Benutzer eine bereits generierte Version auswählt (gleiche Variante und Sprache)
 - **THEN** wird die Version aus dem SessionStorage geladen, OHNE einen API-Call auszulösen
 
-### Requirement: Fünf Lesestufen werden unterstützt
+### Requirement: CEFR- und Schulstufen-Varianten werden unterstützt
 
-Der Store MUSS fünf Lesestufen verwalten: `original`, `easy`, `simplified`, `very-simplified`, `children`.
+Der Store MUSS die Varianten `original`, `cefr:a1`, `cefr:a2`, `cefr:b1`, `cefr:b2`, `cefr:c1` sowie `grade:1` bis `grade:9` verwalten. CEFR C2 MUSS NICHT angeboten werden.
 
-#### Scenario: Lesestufe wechseln
+#### Scenario: CEFR-Stufe wechseln
 
-- **WHEN** der Benutzer eine andere Lesestufe auswählt
+- **WHEN** der Benutzer im CEFR-Slider eine Stufe A1 bis C1 auswählt
 - **THEN** wird geprüft, ob die Version bereits im Cache existiert
 - **THEN** wird bei Cache-Hit die gespeicherte Version angezeigt
 - **THEN** wird bei Cache-Miss die Vereinfachung über die AI angefordert und danach gecacht
 
+#### Scenario: Schulstufe wechseln
+
+- **WHEN** der Benutzer im Schulstufen-Slider eine Klasse 1 bis 9 auswählt
+- **THEN** wird geprüft, ob die Version bereits im Cache existiert
+- **THEN** wird bei Cache-Hit die gespeicherte Version angezeigt
+- **THEN** wird bei Cache-Miss eine zusammenfassende Schulstufen-Version über die AI angefordert und danach gecacht
+- **THEN** enthält die Ausgabe immer drei Leseniveaus untereinander
+
 #### Scenario: Original-Stufe benötigt keine AI
 
-- **WHEN** der Benutzer zur Stufe `original` zurückkehrt
+- **WHEN** der Benutzer im CEFR-Slider zur Stufe `original` zurückkehrt
 - **THEN** wird der originale Markdown-Artikel angezeigt, OHNE die AI aufzurufen
 
 ### Requirement: Mehrere Sprachen pro Artikel
@@ -48,18 +56,19 @@ Der Store MUSS verschiedene Sprachversionen desselben Artikels verwalten können
 #### Scenario: Sprachwechsel für denselben Artikel
 
 - **WHEN** der Benutzer die Sprache eines bereits geladenen Artikels ändert
-- **THEN** wird geprüft, ob die Version in der neuen Sprache und aktuellen Lesestufe im Cache existiert
+- **THEN** wird geprüft, ob die Version in der neuen Sprache und aktuellen Variante im Cache existiert
 - **THEN** wird bei Cache-Miss eine Übersetzung über die AI angefordert
 
-### Requirement: UI zeigt Lesestufen-Auswahl
+### Requirement: UI zeigt zwei Vereinfachungs-Slider
 
-Die `ArticlePage.vue` MUSS eine Auswahl für die fünf Lesestufen anzeigen, die den bisherigen Original/Simplified-Toggle und CEFR-Selektor ersetzt.
+Die `ArticlePage.vue` MUSS zwei Slider anzeigen: einen CEFR-Slider mit `Original`, `A1`, `A2`, `B1`, `B2`, `C1` und einen Schulstufen-Slider mit `1. Klasse` bis `9. Klasse`.
 
-#### Scenario: Lesestufen-Auswahl wird angezeigt
+#### Scenario: Zwei Slider werden angezeigt
 
 - **WHEN** ein Artikel geladen ist
-- **THEN** werden alle fünf Lesestufen als auswählbare Optionen angezeigt
-- **THEN** ist die aktuelle Stufe visuell hervorgehoben
+- **THEN** werden beide Slider über die bestehende Floating-Steuerung angezeigt
+- **THEN** aktiviert eine CEFR-Auswahl eine strukturerhaltende Vereinfachung
+- **THEN** aktiviert eine Schulstufen-Auswahl eine dreistufige Zusammenfassung
 
 #### Scenario: Sprachauswahl für Artikelversion
 
@@ -77,7 +86,7 @@ Der Cache MUSS mit begrenztem SessionStorage-Speicherplatz umgehen können.
 
 ### Requirement: Strukturerhaltende AI-Vereinfachung
 
-Die AI-Vereinfachung MUSS die Dokumentstruktur des Markdown-Artikels beibehalten. Headings, Bilder und Medien-Elemente MÜSSEN an ihrem ursprünglichen Platz im Dokument bleiben.
+Die CEFR-AI-Vereinfachung MUSS die Dokumentstruktur des Markdown-Artikels beibehalten. Headings, Bilder und Medien-Elemente MÜSSEN an ihrem ursprünglichen Platz im Dokument bleiben. Die Schulstufen-AI-Vereinfachung MUSS als Zusammenfassung erstellt werden und MUSS die Originalstruktur NICHT beibehalten.
 
 #### Scenario: Headings bleiben als Headings erhalten
 

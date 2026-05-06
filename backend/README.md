@@ -57,6 +57,70 @@ Wenn `GEMINI_API_KEY` gesetzt ist, verwendet das Backend den regionalen Vertex-A
 
 Wenn `AI_PROVIDER` nicht gesetzt ist, verwendet das Backend `anthropic`.
 
+## Statistik / MySQL
+
+Die Nutzungsstatistik schreibt monatliche aggregierte Zähler in die MySQL-Tabelle `visitors`. Ohne vollständige MySQL-Konfiguration startet das Backend weiterhin; Statistik-Schreibzugriffe werden dann als No-Op behandelt.
+
+```env
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=dein_user
+MYSQL_PASSWORD=dein_passwort
+MYSQL_DATABASE=deine_datenbank
+
+# Passwort fuer GET /api/stats/monthly und die /statistik-Seite
+STATS_ADMIN_PASSWORD=langes_admin_passwort
+```
+
+Schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS visitors (
+  monthPrimary varchar(5) NOT NULL PRIMARY KEY,
+  visitors int(11) NOT NULL DEFAULT 0,
+  article_views int(11) NOT NULL DEFAULT 0,
+  simplify_cefr_a1 int(11) NOT NULL DEFAULT 0,
+  simplify_cefr_a2 int(11) NOT NULL DEFAULT 0,
+  simplify_cefr_b1 int(11) NOT NULL DEFAULT 0,
+  simplify_cefr_b2 int(11) NOT NULL DEFAULT 0,
+  simplify_cefr_c1 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_1 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_2 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_3 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_4 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_5 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_6 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_7 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_8 int(11) NOT NULL DEFAULT 0,
+  simplify_grade_9 int(11) NOT NULL DEFAULT 0,
+  translations int(11) NOT NULL DEFAULT 0,
+  chats int(11) NOT NULL DEFAULT 0,
+  chat_questions int(11) NOT NULL DEFAULT 0,
+  visits int(11) NOT NULL DEFAULT 0,
+  pages int(11) NOT NULL DEFAULT 0
+);
+```
+
+Falls die Tabelle bereits ohne die neuen Simplify- oder `translations`-Spalten existiert:
+
+```sql
+ALTER TABLE visitors ADD COLUMN simplify_cefr_a1 int(11) NOT NULL DEFAULT 0 AFTER article_views;
+ALTER TABLE visitors ADD COLUMN simplify_cefr_a2 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_a1;
+ALTER TABLE visitors ADD COLUMN simplify_cefr_b1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_a2;
+ALTER TABLE visitors ADD COLUMN simplify_cefr_b2 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_b1;
+ALTER TABLE visitors ADD COLUMN simplify_cefr_c1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_b2;
+ALTER TABLE visitors ADD COLUMN simplify_grade_1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_c1;
+ALTER TABLE visitors ADD COLUMN simplify_grade_2 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_1;
+ALTER TABLE visitors ADD COLUMN simplify_grade_3 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_2;
+ALTER TABLE visitors ADD COLUMN simplify_grade_4 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_3;
+ALTER TABLE visitors ADD COLUMN simplify_grade_5 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_4;
+ALTER TABLE visitors ADD COLUMN simplify_grade_6 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_5;
+ALTER TABLE visitors ADD COLUMN simplify_grade_7 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_6;
+ALTER TABLE visitors ADD COLUMN simplify_grade_8 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_7;
+ALTER TABLE visitors ADD COLUMN simplify_grade_9 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_8;
+ALTER TABLE visitors ADD COLUMN translations int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_9;
+```
+
 ## Project setup
 
 ```bash

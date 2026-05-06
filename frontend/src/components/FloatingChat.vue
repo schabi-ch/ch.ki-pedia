@@ -17,9 +17,10 @@
           :name="msg.role === 'user' ? $t('chat.you') : $t('chat.assistant')" :sent="msg.role === 'user'"
           :bg-color="msg.role === 'user' ? 'primary' : 'grey-3'" :text-color="msg.role === 'user' ? 'white' : 'dark'">
           <q-markdown :src="msg.content" class="chat-markdown" no-html no-heading-anchor-links />
+
         </q-chat-message>
-        <div v-if="store.chatLoading" class="row justify-start q-mt-sm">
-          <q-spinner color="primary" size="sm" />
+        <div v-if="store.chatLoading" class="q-my-sm">
+          <q-spinner-dots color="primary" size="sm" />
         </div>
       </q-card-section>
 

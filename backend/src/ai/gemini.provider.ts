@@ -1,10 +1,14 @@
-import { GoogleGenAI, type Content } from '@google/genai';
 import { ConfigService } from '@nestjs/config';
 import type {
   AiCompletionRequest,
   AiProvider,
   AiStreamingCompletionRequest,
 } from './ai-provider';
+
+type GeminiContent = {
+  role: 'user' | 'model';
+  parts: Array<{ text: string }>;
+};
 
 interface VertexGenerateContentResponse {
   candidates?: Array<{
@@ -44,7 +48,7 @@ export class GeminiProvider implements AiProvider {
       return this.completeTextWithApiKey(request, projectId, location, apiKey);
     }
 
-    const genAi = this.createGenAI(projectId, location);
+    const genAi = await this.createGenAI(projectId, location);
 
     try {
       const stream = await genAi.models.generateContentStream({
@@ -84,7 +88,7 @@ export class GeminiProvider implements AiProvider {
       );
     }
 
-    const genAi = this.createGenAI(projectId, location);
+    const genAi = await this.createGenAI(projectId, location);
 
     try {
       const stream = await genAi.models.generateContentStream({
@@ -92,7 +96,11 @@ export class GeminiProvider implements AiProvider {
         contents: this.buildContents(request),
         config: this.buildSdkConfig(request),
       });
-      const text = await this.extractText(stream, request.onChunk, request.signal);
+      const text = await this.extractText(
+        stream,
+        (chunk) => request.onChunk(chunk),
+        request.signal,
+      );
       if (!text) {
         throw new Error('Unexpected response from Gemini API');
       }
@@ -173,10 +181,18 @@ export class GeminiProvider implements AiProvider {
       throw new Error('Gemini API did not return a stream');
     }
 
-    return this.readRestEventStream(response.body, request.onChunk, request.signal);
+    return this.readRestEventStream(
+      response.body,
+      (chunk) => request.onChunk(chunk),
+      request.signal,
+    );
   }
 
-  private createGenAI(projectId: string, location: string): GoogleGenAI {
+  private async createGenAI(
+    projectId: string,
+    location: string,
+  ): Promise<any> {
+    const { GoogleGenAI } = await import('@google/genai');
     return new GoogleGenAI({
       vertexai: true,
       project: projectId,
@@ -184,7 +200,7 @@ export class GeminiProvider implements AiProvider {
     });
   }
 
-  private buildContents(request: AiCompletionRequest): Content[] {
+  private buildContents(request: AiCompletionRequest): GeminiContent[] {
     return [
       ...(request.history ?? []).map((historyMessage) => ({
         role: this.toGeminiRole(historyMessage.role),
@@ -220,7 +236,7 @@ export class GeminiProvider implements AiProvider {
   }
 
   private buildRestRequestBody(request: AiCompletionRequest): {
-    contents: Content[];
+    contents: GeminiContent[];
     systemInstruction?: {
       role: string;
       parts: Array<{ text: string }>;

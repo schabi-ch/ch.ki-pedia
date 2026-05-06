@@ -70,7 +70,21 @@ export interface Article {
   url: string;
 }
 
-export type ReadingLevel = 'original' | 'high' | 'moderate' | 'low' | 'minimal';
+export type CefrLevel = 'a1' | 'a2' | 'b1' | 'b2' | 'c1';
+export type CefrSliderLevel = 'original' | CefrLevel;
+export type GradeLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type SimplifyMode = 'cefr' | 'grade';
+export type ArticleVariant =
+  | 'original'
+  | `cefr:${CefrLevel}`
+  | `grade:${GradeLevel}`;
+
+interface SimplifyRequestPayload {
+  text: string;
+  mode: SimplifyMode;
+  cefrLevel?: CefrLevel;
+  gradeLevel?: GradeLevel;
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -91,12 +105,16 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const article = ref<Article | null>(null);
   const articleLanguages = ref<ArticleLangLink[]>([]);
   const simplifiedContent = ref('');
-  const readingLevel = ref<ReadingLevel>('original');
+  const activeVariant = ref<ArticleVariant>('original');
+  const activeSimplifyMode = ref<SimplifyMode>('cefr');
+  const cefrLevel = ref<CefrSliderLevel>('original');
+  const gradeLevel = ref<GradeLevel>(6);
   const articleLang = ref(getWikiLang());
   const articleLoading = ref(false);
   const simplifyLoading = ref(false);
   const translateLoading = ref(false);
   const articleError = ref('');
+  const simplifySourceText = ref('');
   let simplifyAbortController: AbortController | null = null;
   let simplifyRunId = 0;
 
@@ -104,12 +122,12 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     if (!article.value) return '';
     if (
       simplifyLoading.value &&
-      readingLevel.value !== 'original' &&
+      activeVariant.value !== 'original' &&
       !simplifiedContent.value
     ) {
       return '';
     }
-    if (readingLevel.value === 'original' && articleLang.value === getWikiLang()) {
+    if (activeVariant.value === 'original' && articleLang.value === getWikiLang()) {
       return article.value.contentMarkdown;
     }
     return simplifiedContent.value || article.value.contentMarkdown;
@@ -147,6 +165,30 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     simplifyAbortController = null;
   }
 
+  function cancelSimplifyByUser() {
+    abortSimplifyStream();
+    simplifyLoading.value = false;
+
+    const baseText =
+      simplifiedContent.value ||
+      simplifySourceText.value ||
+      article.value?.contentMarkdown ||
+      '';
+    if (!baseText) return;
+
+    const suffix = getLocalizedMessage(
+      'article.simplifyCancelledByUser',
+      '... (Abbruch durch den Benutzer)',
+    );
+    if (baseText.includes(suffix)) {
+      simplifiedContent.value = baseText;
+      return;
+    }
+
+    const separator = baseText.endsWith('\n') ? '' : ' ';
+    simplifiedContent.value = `${baseText}${separator}${suffix}`;
+  }
+
   function abortChatStream() {
     chatAbortController?.abort();
     chatAbortController = null;
@@ -175,8 +217,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleError.value = '';
     article.value = null;
     articleLanguages.value = [];
-    simplifiedContent.value = '';
-    readingLevel.value = 'original';
+    resetSimplificationState();
     articleLang.value = getWikiLang();
     chatMessages.value = [];
     abortChatStream();
@@ -209,20 +250,40 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     }
   }
 
+  async function applyCefrLevel(level: CefrSliderLevel) {
+    cefrLevel.value = level;
+    activeSimplifyMode.value = 'cefr';
+    activeVariant.value = level === 'original' ? 'original' : `cefr:${level}`;
+    await simplifyActiveVariant();
+  }
+
+  async function applyGradeLevel(level: GradeLevel) {
+    gradeLevel.value = level;
+    activeSimplifyMode.value = 'grade';
+    activeVariant.value = `grade:${level}`;
+    await simplifyActiveVariant();
+  }
+
   async function simplify() {
+    await simplifyActiveVariant();
+  }
+
+  async function simplifyActiveVariant() {
     if (!article.value) return;
-    const level = readingLevel.value;
-    if (level === 'original') {
+    const variant = activeVariant.value;
+    if (variant === 'original') {
       abortSimplifyStream();
       simplifiedContent.value = '';
+      simplifySourceText.value = '';
       return;
     }
     simplifiedContent.value = '';
     // Check cache first
-    const cached = getVersion(article.value.title, articleLang.value, level);
+    const cached = getVersion(article.value.title, articleLang.value, variant);
     if (cached) {
       abortSimplifyStream();
       simplifiedContent.value = cached;
+      simplifySourceText.value = '';
       return;
     }
     // Get the source text: use the original in the current articleLang
@@ -231,7 +292,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       article.value.contentMarkdown;
     await streamSimplifiedContent({
       sourceText,
-      level,
+      variant,
       cacheTitle: article.value.title,
       cacheLang: articleLang.value,
       fallbackText: article.value.contentMarkdown,
@@ -242,11 +303,12 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     if (!article.value) return;
     const sourceLang = articleLang.value;
     articleLang.value = targetLang;
-    const level = readingLevel.value;
+    const variant = activeVariant.value;
     // Check cache for the target version
-    const cached = getVersion(article.value.title, targetLang, level);
+    const cached = getVersion(article.value.title, targetLang, variant);
     if (cached) {
       simplifiedContent.value = cached;
+      simplifySourceText.value = '';
       return;
     }
     // We need the original in the target language first
@@ -270,14 +332,15 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         translateLoading.value = false;
       }
     }
-    if (level === 'original') {
+    if (variant === 'original') {
       simplifiedContent.value = translatedOriginal;
+      simplifySourceText.value = '';
       return;
     }
     // Now simplify the translated original
     await streamSimplifiedContent({
       sourceText: translatedOriginal,
-      level,
+      variant,
       cacheTitle: article.value.title,
       cacheLang: targetLang,
       fallbackText: translatedOriginal,
@@ -292,8 +355,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     const previousLang = articleLang.value;
     articleLoading.value = true;
     articleError.value = '';
-    simplifiedContent.value = '';
-    readingLevel.value = 'original';
+    resetSimplificationState();
     articleLang.value = targetLang;
     chatMessages.value = [];
     abortChatStream();
@@ -394,7 +456,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   async function streamSimplifiedContent(options: {
     sourceText: string;
-    level: Exclude<ReadingLevel, 'original'>;
+    variant: Exclude<ArticleVariant, 'original'>;
     cacheTitle: string;
     cacheLang: string;
     fallbackText: string;
@@ -406,16 +468,16 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     let accumulated = '';
 
     simplifyLoading.value = true;
+    simplifySourceText.value = options.sourceText;
     simplifiedContent.value = '';
 
     try {
       const response = await fetch('/api/ai/simplify/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: options.sourceText,
-          level: options.level,
-        }),
+        body: JSON.stringify(
+          buildSimplifyPayload(options.sourceText, options.variant),
+        ),
         signal: controller.signal,
       });
 
@@ -449,7 +511,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       }
       if (runId !== simplifyRunId) return;
 
-      setVersion(options.cacheTitle, options.cacheLang, options.level, accumulated);
+      setVersion(options.cacheTitle, options.cacheLang, options.variant, accumulated);
       notifySuccess(getLocalizedMessage('article.simplifiedDone', 'The text has been rewritten.'));
     } catch (err) {
       if (isAbortError(err)) {
@@ -471,6 +533,33 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     return err instanceof DOMException && err.name === 'AbortError';
   }
 
+  function resetSimplificationState() {
+    simplifiedContent.value = '';
+    simplifySourceText.value = '';
+    activeVariant.value = 'original';
+    activeSimplifyMode.value = 'cefr';
+    cefrLevel.value = 'original';
+  }
+
+  function buildSimplifyPayload(
+    text: string,
+    variant: Exclude<ArticleVariant, 'original'>,
+  ): SimplifyRequestPayload {
+    if (variant.startsWith('cefr:')) {
+      return {
+        text,
+        mode: 'cefr',
+        cefrLevel: variant.slice('cefr:'.length) as CefrLevel,
+      };
+    }
+
+    return {
+      text,
+      mode: 'grade',
+      gradeLevel: Number(variant.slice('grade:'.length)) as GradeLevel,
+    };
+  }
+
   return {
     searchResults,
     searchQuery,
@@ -480,7 +569,10 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleLanguages,
     displayedContent,
     simplifiedContent,
-    readingLevel,
+    activeVariant,
+    activeSimplifyMode,
+    cefrLevel,
+    gradeLevel,
     articleLang,
     articleLoading,
     simplifyLoading,
@@ -496,10 +588,13 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     search,
     loadArticle,
     loadArticleInLanguage,
+    applyCefrLevel,
+    applyGradeLevel,
     simplify,
     translate,
     sendMessage,
     abortSimplifyStream,
+    cancelSimplifyByUser,
     abortChatStream,
   };
 });

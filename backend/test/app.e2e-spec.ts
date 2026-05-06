@@ -1,15 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
 const REQUEST_BODY_LIMIT = '2mb';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -47,12 +45,13 @@ describe('AppController (e2e)', () => {
 
     return request(app.getHttpServer())
       .post('/api/ai/simplify')
-      .send({ text, level: 'moderate' })
+      .send({ text, mode: 'cefr', cefrLevel: 'b1' })
       .expect(201)
       .expect(({ body }) => {
-        expect(body.simplified).toHaveLength(text.length);
-        expect(body.simplified.slice(0, 20)).toBe(text.slice(0, 20));
-        expect(body.simplified.slice(-20)).toBe(text.slice(-20));
+        const payload = body as { simplified: string };
+        expect(payload.simplified).toHaveLength(text.length);
+        expect(payload.simplified.slice(0, 20)).toBe(text.slice(0, 20));
+        expect(payload.simplified.slice(-20)).toBe(text.slice(-20));
       });
   });
 

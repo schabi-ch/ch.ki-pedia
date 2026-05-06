@@ -5,13 +5,94 @@ import {
 } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
-import { tables } from 'turndown-plugin-gfm';
+
+// Inlined from turndown-plugin-gfm (tables only)
+const _indexOf = Array.prototype.indexOf;
+const _every = Array.prototype.every;
+
+function _isHeadingRow(tr: Element): boolean {
+  const parentNode = tr.parentNode as Element;
+  return (
+    parentNode.nodeName === 'THEAD' ||
+    (parentNode.firstChild === tr &&
+      (parentNode.nodeName === 'TABLE' || _isFirstTbody(parentNode)) &&
+      _every.call(tr.childNodes, (n: Element) => n.nodeName === 'TH'))
+  );
+}
+
+function _isFirstTbody(element: Element): boolean {
+  const previousSibling = element.previousSibling as Element | null;
+  return (
+    element.nodeName === 'TBODY' &&
+    (!previousSibling ||
+      (previousSibling.nodeName === 'THEAD' &&
+        /^\s*$/i.test(previousSibling.textContent ?? '')))
+  );
+}
+
+function _cell(content: string, node: Element): string {
+  const index = _indexOf.call(
+    (node.parentNode as Element).childNodes,
+    node,
+  );
+  const prefix = index === 0 ? '| ' : ' ';
+  return prefix + content + ' |';
+}
+
+function tables(turndownService: TurndownService): void {
+  turndownService.keep(
+    (node: Element) =>
+      node.nodeName === 'TABLE' &&
+      !(node as HTMLTableElement).rows[0] ||
+      (node.nodeName === 'TABLE' &&
+        !_isHeadingRow((node as HTMLTableElement).rows[0])),
+  );
+  turndownService.addRule('tableCell', {
+    filter: ['th', 'td'],
+    replacement: (content: string, node: Node) =>
+      _cell(content, node as Element),
+  });
+  turndownService.addRule('tableRow', {
+    filter: 'tr',
+    replacement: (content: string, node: Node) => {
+      const tr = node as HTMLTableRowElement;
+      const alignMap: Record<string, string> = {
+        left: ':--',
+        right: '--:',
+        center: ':-:',
+      };
+      let borderCells = '';
+      if (_isHeadingRow(tr)) {
+        for (let i = 0; i < tr.childNodes.length; i++) {
+          let border = '---';
+          const align = (
+            (tr.childNodes[i] as Element).getAttribute?.('align') ?? ''
+          ).toLowerCase();
+          if (align) border = alignMap[align] ?? border;
+          borderCells += _cell(border, tr.childNodes[i] as Element);
+        }
+      }
+      return '\n' + content + (borderCells ? '\n' + borderCells : '');
+    },
+  });
+  turndownService.addRule('table', {
+    filter: (node: HTMLElement) =>
+      node.nodeName === 'TABLE' &&
+      !!(node as HTMLTableElement).rows[0] &&
+      _isHeadingRow((node as HTMLTableElement).rows[0]),
+    replacement: (content: string) =>
+      '\n\n' + content.replace('\n\n', '\n') + '\n\n',
+  });
+  turndownService.addRule('tableSection', {
+    filter: ['thead', 'tbody', 'tfoot'],
+    replacement: (content: string) => content,
+  });
+}
 
 interface WikiGeneratorSearchPage {
   pageid: number;
   title: string;
   index?: number;
-  terms?: { description?: string[] };
   thumbnail?: { source?: string };
 }
 
@@ -36,7 +117,6 @@ interface WikiExtractResponse {
 
 export interface WikiSearchResult {
   title: string;
-  description: string;
   snippet: string;
   pageid: number;
   thumbnail: string | null;
@@ -328,10 +408,9 @@ export class WikipediaService {
       generator: 'search',
       gsrsearch: query,
       gsrlimit: '10',
-      prop: 'pageimages|pageterms',
+      prop: 'pageimages',
       piprop: 'thumbnail',
       pithumbsize: '80',
-      wbptterms: 'description',
       format: 'json',
       origin: '*',
     });
@@ -354,7 +433,6 @@ export class WikipediaService {
       })
       .map((page) => ({
         title: page.title,
-        description: page.terms?.description?.[0] ?? '',
         snippet: '',
         pageid: page.pageid,
         thumbnail: page.thumbnail?.source ?? null,

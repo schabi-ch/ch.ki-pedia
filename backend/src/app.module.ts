@@ -7,6 +7,7 @@ import { validateEnv } from './config/env';
 import { HealthModule } from './health/health.module';
 import { WikipediaModule } from './wikipedia/wikipedia.module';
 import { AiModule } from './ai/ai.module';
+import { StatsModule } from './stats/stats.module';
 import { join } from 'path';
 
 @Module({
@@ -25,6 +26,7 @@ import { join } from 'path';
       exclude: ['/api/{*path}'],
     }),
     HealthModule,
+    StatsModule,
     WikipediaModule,
     AiModule,
   ],

@@ -63,7 +63,7 @@ describe('AiService', () => {
     const service = new AiService(createConfigService({}));
 
     await expect(
-      service.simplify('Original text', 'moderate'),
+      service.simplify('Original text', { mode: 'cefr', cefrLevel: 'b1' }),
     ).resolves.toEqual({
       simplified: 'Original text',
     });
@@ -98,11 +98,11 @@ describe('AiService', () => {
       }),
     );
 
-    await expect(service.simplify('Complex text', 'moderate')).resolves.toEqual(
-      {
-        simplified: 'Simplified',
-      },
-    );
+    await expect(
+      service.simplify('Complex text', { mode: 'cefr', cefrLevel: 'b1' }),
+    ).resolves.toEqual({
+      simplified: 'Simplified',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.anthropic.com/v1/messages',
@@ -143,9 +143,13 @@ describe('AiService', () => {
     const chunks: string[] = [];
 
     await expect(
-      service.simplifyStream('Complex text', 'minimal', (chunk) => {
-        chunks.push(chunk);
-      }),
+      service.simplifyStream(
+        'Complex text',
+        { mode: 'cefr', cefrLevel: 'a1' },
+        (chunk) => {
+          chunks.push(chunk);
+        },
+      ),
     ).resolves.toEqual({ simplified: 'Hello world' });
 
     expect(chunks).toEqual(['Hello ', 'world']);
@@ -155,10 +159,33 @@ describe('AiService', () => {
     expect(body.stream).toBe(true);
     expect(body.max_tokens).toBe(32768);
     expect(body.messages[0].content[0].text).toBe('Complex text');
-    expect(body.system).toContain('Use very simple everyday words');
+    expect(body.system).toContain('very simple everyday words');
     expect(body.system).toContain(
       'Write the answer in the SAME language as the input text',
     );
+  });
+
+  it('builds grade summary prompts with three reading levels', async () => {
+    fetchMock.mockResolvedValue(
+      createJsonResponse({ content: [{ type: 'text', text: 'Zusammenfassung' }] }),
+    );
+    const service = new AiService(
+      createConfigService({
+        AI_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'anthropic-key',
+      }),
+    );
+
+    await expect(
+      service.simplify('Komplexer Artikel', { mode: 'grade', gradeLevel: 6 }),
+    ).resolves.toEqual({ simplified: 'Zusammenfassung' });
+
+    const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
+    expect(body.system).toContain('Swiss grade 6');
+    expect(body.system).toContain('11-12 years old');
+    expect(body.system).toContain('## Level 1 - einfacher');
+    expect(body.system).toContain('approximately 250-350 words');
+    expect(body.system).toContain('approximately 500-600 words');
   });
 
   it('sends simplify in a single request even for very long input', async () => {
@@ -177,7 +204,10 @@ describe('AiService', () => {
       '## Abschnitt 2\n\n' + 'C'.repeat(9000),
     ].join('\n\n');
 
-    const result = await service.simplify(longText, 'minimal');
+    const result = await service.simplify(longText, {
+      mode: 'cefr',
+      cefrLevel: 'a1',
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.simplified).toBe('Vereinfacht');
@@ -267,9 +297,9 @@ describe('AiService', () => {
       }),
     );
 
-    await expect(service.simplify('Text', 'moderate')).resolves.toEqual({
-      simplified: 'Hello world',
-    });
+    await expect(
+      service.simplify('Text', { mode: 'cefr', cefrLevel: 'b1' }),
+    ).resolves.toEqual({ simplified: 'Hello world' });
     expect(mockGoogleGenAIConstructor).toHaveBeenCalledWith({
       vertexai: true,
       project: 'test-project',
@@ -288,9 +318,13 @@ describe('AiService', () => {
     const chunks: string[] = [];
 
     await expect(
-      service.simplifyStream('Text', 'moderate', (chunk) => {
-        chunks.push(chunk);
-      }),
+      service.simplifyStream(
+        'Text',
+        { mode: 'cefr', cefrLevel: 'b1' },
+        (chunk) => {
+          chunks.push(chunk);
+        },
+      ),
     ).resolves.toEqual({ simplified: 'Hello world' });
 
     expect(chunks).toEqual(['Hello ', 'world']);
@@ -330,13 +364,15 @@ describe('AiService', () => {
     ).resolves.toEqual({ reply: 'Hallo Welt' });
 
     expect(chunks).toEqual(['Hallo', ' Welt']);
+    const expectedContents = expect.arrayContaining([
+      expect.objectContaining({
+        parts: [{ text: 'Was ist das?' }],
+      }),
+    ]) as unknown;
+
     expect(mockGenerateContentStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        contents: expect.arrayContaining([
-          expect.objectContaining({
-            parts: [{ text: 'Was ist das?' }],
-          }) as Record<string, unknown>,
-        ]),
+        contents: expectedContents,
       }),
     );
   });

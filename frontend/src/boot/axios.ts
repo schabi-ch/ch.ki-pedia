@@ -4,7 +4,7 @@ import { Notify } from 'quasar';
 import messages from 'src/i18n';
 import { LOCALE_STORAGE_KEY } from './i18n';
 
-type ApiErrorPayload = {
+export type ApiErrorPayload = {
   message?: string | string[];
   error?: string;
   details?: string;
@@ -79,10 +79,15 @@ function notifySuccess(message: string): void {
   });
 }
 
+function isSilentError(error: AxiosError<ApiErrorPayload>): boolean {
+  const headers = error.config?.headers as Record<string, unknown> | undefined;
+  return headers?.['X-Silent-Error'] === 'true';
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorPayload>) => {
-    if (!axios.isCancel(error)) {
+    if (!axios.isCancel(error) && !isSilentError(error)) {
       notifyError(extractApiErrorMessage(error));
     }
 
@@ -103,4 +108,4 @@ export default defineBoot(({ app }) => {
 });
 
 export { api };
-export { getLocalizedMessage, notifySuccess };
+export { getLocalizedMessage, notifySuccess, extractApiErrorMessage };

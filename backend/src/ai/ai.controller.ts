@@ -7,13 +7,22 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { AiService, type ChatMessage } from './ai.service';
-
-const VALID_READING_LEVELS = ['high', 'moderate', 'low', 'minimal'];
+import {
+  AiService,
+  CEFR_LEVELS,
+  GRADE_LEVELS,
+  type ChatMessage,
+  type CefrLevel,
+  type GradeLevel,
+  type SimplifyVariant,
+} from './ai.service';
+import { StatsService } from '../stats/stats.service';
 
 interface SimplifyDto {
-  text: string;
-  level: string;
+  text?: unknown;
+  mode?: unknown;
+  cefrLevel?: unknown;
+  gradeLevel?: unknown;
 }
 
 interface ChatDto {
@@ -31,12 +40,16 @@ interface TranslateDto {
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly statsService: StatsService,
+  ) {}
 
   @Post('simplify')
   simplify(@Body() body: SimplifyDto) {
-    this.validateSimplifyBody(body);
-    return this.aiService.simplify(body.text, body.level);
+    const variant = this.validateSimplifyBody(body);
+    void this.statsService.incrementSimplify(variant);
+    return this.aiService.simplify(body.text as string, variant);
   }
 
   @Post('simplify/stream')
@@ -45,7 +58,8 @@ export class AiController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    this.validateSimplifyBody(body);
+    const variant = this.validateSimplifyBody(body);
+    void this.statsService.incrementSimplify(variant);
 
     const startedAt = Date.now();
     let chunkCount = 0;
@@ -71,8 +85,8 @@ export class AiController {
 
     try {
       await this.aiService.simplifyStream(
-        body.text,
-        body.level,
+        body.text as string,
+        variant,
         (chunk) => {
           chunkCount += 1;
           writtenChars += chunk.length;
@@ -101,6 +115,7 @@ export class AiController {
   @Post('chat')
   chat(@Body() body: ChatDto) {
     this.validateChatBody(body);
+    void this.statsService.incrementChat(!body.history?.length);
     return this.aiService.chat(
       body.articleTitle,
       body.articleContent,
@@ -116,6 +131,7 @@ export class AiController {
     @Res() res: Response,
   ): Promise<void> {
     this.validateChatBody(body);
+    void this.statsService.incrementChat(!body.history?.length);
 
     const startedAt = Date.now();
     let chunkCount = 0;
@@ -172,17 +188,8 @@ export class AiController {
 
   @Post('translate')
   translate(@Body() body: TranslateDto) {
-    if (!body.text?.trim()) {
-      throw new BadRequestException('Field "text" is required');
-    }
-    if (!body.sourceLang?.trim()) {
-      throw new BadRequestException('Field "sourceLang" is required');
-    }
-    if (!AiService.SUPPORTED_LANGS.includes(body.targetLang)) {
-      throw new BadRequestException(
-        `Field "targetLang" must be one of: ${AiService.SUPPORTED_LANGS.join(', ')}`,
-      );
-    }
+    this.validateTranslateBody(body);
+    void this.statsService.incrementTranslation();
     return this.aiService.translate(
       body.text,
       body.sourceLang,
@@ -190,15 +197,44 @@ export class AiController {
     );
   }
 
-  private validateSimplifyBody(body: SimplifyDto): void {
-    if (!body.text?.trim()) {
+  private validateSimplifyBody(body: SimplifyDto): SimplifyVariant {
+    if (typeof body.text !== 'string' || !body.text.trim()) {
       throw new BadRequestException('Field "text" is required');
     }
-    if (!VALID_READING_LEVELS.includes(body.level)) {
-      throw new BadRequestException(
-        `Field "level" must be one of: ${VALID_READING_LEVELS.join(', ')}`,
-      );
+    if (body.mode === 'cefr') {
+      if (!this.isCefrLevel(body.cefrLevel)) {
+        throw new BadRequestException(
+          `Field "cefrLevel" must be one of: ${CEFR_LEVELS.join(', ')}`,
+        );
+      }
+      return { mode: 'cefr', cefrLevel: body.cefrLevel };
     }
+
+    if (body.mode === 'grade') {
+      const gradeLevel = Number(body.gradeLevel);
+      if (!this.isGradeLevel(gradeLevel)) {
+        throw new BadRequestException(
+          `Field "gradeLevel" must be one of: ${GRADE_LEVELS.join(', ')}`,
+        );
+      }
+      return { mode: 'grade', gradeLevel };
+    }
+
+    throw new BadRequestException('Field "mode" must be one of: cefr, grade');
+  }
+
+  private isCefrLevel(value: unknown): value is CefrLevel {
+    return (
+      typeof value === 'string' &&
+      (CEFR_LEVELS as readonly string[]).includes(value)
+    );
+  }
+
+  private isGradeLevel(value: number): value is GradeLevel {
+    return (
+      Number.isInteger(value) &&
+      (GRADE_LEVELS as readonly number[]).includes(value)
+    );
   }
 
   private validateChatBody(body: ChatDto): void {
@@ -210,6 +246,20 @@ export class AiController {
     }
     if (!body.message?.trim()) {
       throw new BadRequestException('Field "message" is required');
+    }
+  }
+
+  private validateTranslateBody(body: TranslateDto): void {
+    if (!body.text?.trim()) {
+      throw new BadRequestException('Field "text" is required');
+    }
+    if (!body.sourceLang?.trim()) {
+      throw new BadRequestException('Field "sourceLang" is required');
+    }
+    if (!AiService.SUPPORTED_LANGS.includes(body.targetLang)) {
+      throw new BadRequestException(
+        `Field "targetLang" must be one of: ${AiService.SUPPORTED_LANGS.join(', ')}`,
+      );
     }
   }
 }

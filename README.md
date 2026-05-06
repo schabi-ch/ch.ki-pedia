@@ -1,31 +1,37 @@
 # ch.ki-pedia
 
-Dieses Repo kann mit **npm** oder **Yarn** verwendet werden.
+Learn more about this project: https://wikiped-ia.org/about
 
-- Backend: npm ist bevorzugt (Lockfile: `backend/package-lock.json`) – passend für Infomaniak (npm-only).
-- Frontend: lokal npm oder Yarn; für Deployment wird nur das gebaute SPA hochgeladen.
+With ki-pedia, you can understand Wikipedia articles more easily with AI support. The application displays the original text in different reading levels and enables AI-powered answers to questions about the article content.
 
-## Lokal starten
+This GitHub repository provides the entire project as open source under the MIT license.
 
-### Full stack mit einem Befehl
+## About the Project
+
+**ch.ki-pedia** combines:
+
+- A modern SPA (Quasar/Vue) for the frontend
+- A NestJS backend with Wikipedia integration
+- AI-powered text simplification (Anthropic Claude or Google Gemini)
+- Usage statistics and chat functionality
+
+## Getting Started
+
+This repo uses **npm** (recommended) or **Yarn**.
+
+### Start Full Stack Locally
 
 ```bash
+npm install
 npm run dev
 ```
 
-Der Root-Befehl startet Backend und Frontend zusammen und prueft vorher, ob Port `3000` oder `9000` schon von einem alten Prozess belegt sind. Falls ja, bricht er mit einer klaren Meldung ab, statt spaeter im Browser einen schwerer lesbaren Proxy- oder 404-Fehler zu erzeugen.
+Starts backend and frontend together:
 
-Status der Dev-Prozesse:
+- Backend: `http://localhost:3000/api`
+- Frontend: `http://localhost:9000`
 
-```bash
-npm run dev:status
-```
-
-Wenn ein alter Prozess auf Port `3000` oder `9000` haengen geblieben ist, kannst du beide Dev-Ports gezielt freiraeumen und die Umgebung sofort neu starten:
-
-```bash
-npm run dev:reset
-```
+The command checks before startup whether the ports are already in use.
 
 ### Backend (NestJS)
 
@@ -35,7 +41,35 @@ npm install
 npm run start:dev
 ```
 
-Backend läuft standardmässig auf `http://localhost:3000` und nutzt den Prefix `/api`.
+The backend runs on `http://localhost:3000` with the API prefix `/api`.
+
+#### Environment Variables (backend/.env)
+
+```env
+# AI Provider: anthropic or gemini
+AI_PROVIDER=anthropic
+
+# Anthropic Claude
+ANTHROPIC_API_KEY=your_key_here
+CLAUDE_MODEL=claude-haiku-4-5-20251001
+
+# Or: Google Gemini (optional)
+GEMINI_PROJECT_ID=your_project
+GEMINI_LOCATION=us-central1
+GEMINI_API_KEY=your_key
+
+# MySQL for usage statistics (optional)
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=your_user
+MYSQL_PASSWORD=your_password
+MYSQL_DATABASE=your_db
+STATS_ADMIN_PASSWORD=long_password_here
+
+# Server
+PORT=3000
+NODE_ENV=development
+```
 
 ### Frontend (Quasar SPA)
 
@@ -45,61 +79,69 @@ npm install
 npm run dev
 ```
 
-Das Frontend verwendet History-Routing, also echte URLs ohne `#`. Direkte Aufrufe wie `/about` oder ein Browser-Reload auf einer Unterseite brauchen deshalb einen Server-Fallback auf die SPA-`index.html`.
-
-## Deployment (Infomaniak Shared Hosting)
-
-### Frontend deployen (statisch)
-
-1. Lokal bauen:
+The frontend uses history routing (URLs without `#`). For production builds:
 
 ```bash
-cd frontend
-npm install
 npm run build
 ```
 
-2. Inhalt von `frontend/dist/spa/` ins Webroot (z.B. `public_html/`) hochladen.
+The built app is then in `frontend/dist/spa/`.
 
-Wichtig: Da das SPA History-Routing nutzt, muss der Webserver bei allen Nicht-Datei-Routen die `index.html` ausliefern. Wenn das Frontend stattdessen vom NestJS-Server ausgeliefert wird, übernimmt dieser Fallback die Weiterleitung bereits für alle Routen ausser `/api`.
+#### Frontend Commands
 
-### Backend deployen (Node.js App)
+- `npm run lint` – Check with ESLint
+- `npm run format` – Format code
+- `npm run build` – Production build
 
-1. Lokal bauen:
+## File Structure
+
+```
+ch.ki-pedia/
+├── backend/                # NestJS API
+│   ├── src/
+│   │   ├── ai/            # AI providers (Anthropic, Gemini)
+│   │   ├── wikipedia/     # Wikipedia integration
+│   │   ├── stats/         # Usage statistics
+│   │   └── health/        # Health check endpoint
+│   └── package.json
+├── frontend/              # Quasar SPA
+│   ├── src/
+│   │   ├── pages/         # Pages
+│   │   ├── components/    # Vue components
+│   │   ├── stores/        # Pinia stores
+│   │   └── i18n/          # Localization
+│   └── package.json
+└── openspec/              # OpenSpec change management
+```
+
+## Development
 
 ```bash
-cd backend
-npm install
-npm run build
+# Check status of dev processes
+npm run dev:status
+
+# Stop dev processes and free ports
+npm run dev:reset
 ```
 
-2. Folgende Dateien/Ordner auf den Server (Node-App-Ordner) hochladen:
+## API Integration
 
-- `backend/dist/`
-- `backend/package.json`
-- `backend/package-lock.json`
+The backend provides endpoints for:
 
-3. In Infomaniak Node-App konfigurieren:
+- Fetch Wikipedia articles
+- Simplify text (with AI)
+- Chat functionality
+- Usage statistics
+- Health check
 
-- Install command: `npm ci --omit=dev` (oder `npm install --omit=dev`)
-- Start command: `npm run start:prod` (startet `node dist/main`)
-- Env vars: `NODE_ENV=production`, `PORT` (falls nötig), `ANTHROPIC_API_KEY` optional
+See backend source for complete API documentation.
 
-4. Reverse-Proxy so konfigurieren, dass Requests auf `/api` an die Node-App gehen (same-origin), damit das Frontend mit `baseURL: '/api'` funktioniert.
+## License
 
-## Claude / API-Key
+This project is open source under the [MIT License](LICENSE).
 
-Der Backend-Server lädt Umgebungsvariablen aus einer Datei **backend/.env** (liegt direkt neben backend/package.json). Diese Datei ist in backend/.gitignore ausgeschlossen und sollte nicht committed werden.
+## Contact
 
-Beispiel: backend/.env
-
-```env
-# Anthropic / Claude
-ANTHROPIC_API_KEY=dein_key_hier
-
-# Optional (Default ist bereits gesetzt)
-CLAUDE_MODEL=claude-haiku-4-5-20251001
-
-# Optional
-PORT=3000
-```
+**Schule am Bildschirm GmbH**  
+Christof Müller  
+support@schabi.ch

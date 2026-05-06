@@ -46,21 +46,34 @@
                 {{ $t('article.sourceLink') }}
                 <q-icon name="open_in_new" size="xs" />
               </a>
-              <q-btn flat dense icon="print" @click="printArticle" :aria-label="$t('article.print')" />
             </div>
           </div>
         </div>
 
         <q-card flat class="article-card">
           <q-card-section class="article-card-inner">
-            <div v-if="store.article?.infoboxHtml" class="infobox-print">
+            <div class="article-actions">
+              <q-btn flat dense no-caps icon="content_copy" :label="$t('article.copyToClipboard')"
+                :loading="copyLoading" @click="onCopyToClipboard" class="article-action-btn" size="sm">
+                <q-tooltip>{{ $t('article.copyToClipboard') }}</q-tooltip>
+              </q-btn>
+              <q-btn flat dense no-caps icon="description" :label="$t('article.saveAsWord')" :loading="wordLoading"
+                @click="onSaveAsWord" class="article-action-btn" size="sm">
+                <q-tooltip>{{ $t('article.saveAsWord') }}</q-tooltip>
+              </q-btn>
+              <q-btn flat dense no-caps icon="print" :label="$t('article.print')" @click="printArticle"
+                class="article-action-btn" size="sm">
+                <q-tooltip>{{ $t('article.print') }}</q-tooltip>
+              </q-btn>
+            </div>
+            <div v-if="showInfobox" class="infobox-print">
               <div class="infobox-header">
                 <div class="infobox-title">Info-Box</div>
               </div>
               <div class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
-            <div v-if="infoboxOpen && store.article?.infoboxHtml" class="infobox-float">
+            <div v-if="infoboxOpen && showInfobox" class="infobox-float">
               <div class="infobox-header">
                 <div class="infobox-title">Info-Box</div>
                 <q-btn flat dense round icon="close" size="sm" class="infobox-close" @click="infoboxOpen = false" />
@@ -75,38 +88,72 @@
               </div>
             </div>
             <div v-else>
-              <div v-if="store.simplifyLoading" class="text-center q-py-sm">
+              <div v-if="store.simplifyLoading" ref="topCancelRef" class="text-center q-py-sm">
                 <q-spinner color="primary" />
                 <div class="text-grey-6 q-mt-sm">
                   {{ $t('article.simplifying') }}
                 </div>
-                <q-btn flat dense no-caps color="negative" icon="stop" :label="$t('article.cancelSimplify')"
-                  class="q-mt-sm" @click="store.abortSimplifyStream()" />
+                <q-btn outline rounded dense no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
+                  class="q-mt-sm" @click="onCancelSimplify" />
               </div>
-              <div v-if="hasInfobox && !infoboxOpen" class="info-button-float">
+              <div v-if="showInfobox && !infoboxOpen" class="info-button-float">
                 <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab" @click="infoboxOpen = true" />
               </div>
-              <div class="article-content text-body1" :class="articleFontSizeClass" ref="articleContentRef">
+              <div class="article-content text-body1" ref="articleContentRef">
                 <q-markdown :src="store.displayedContent" class="article-markdown" />
               </div>
-              <div v-if="store.simplifyLoading" class="simplify-cancel-bottom">
-                <q-btn flat no-caps color="negative" icon="stop" :label="$t('article.cancelSimplify')"
-                  @click="store.abortSimplifyStream()" />
+              <div v-if="showBottomCancelButton" class="simplify-cancel-bottom">
+                <q-btn outline rounded no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
+                  @click="onCancelSimplify" />
               </div>
             </div>
           </q-card-section>
         </q-card>
 
-        <transition name="slide-up">
-          <div v-if="levelSliderOpen" class="level-slider-panel" v-click-outside="closeLevelSlider">
-            <q-slider v-model="levelIndex" @change="onLevelSliderChange" vertical reverse :min="0" :max="4" :step="1"
-              markers snap label switch-label-side label-always :label-value="currentLevelLabel" color="primary"
-              class="level-slider" />
+        <transition name="slide-in">
+          <div v-if="levelSliderOpen" class="level-panel" v-click-outside="closeLevelSlider">
+            <div class="level-panel-title">{{ $t('article.simplify.title') }}</div>
+
+            <div class="level-panel-section">
+              <div class="level-panel-subtitle">{{ $t('article.simplify.byGrade.subtitle') }}</div>
+              <div class="level-panel-description">{{ $t('article.simplify.byGrade.description') }}</div>
+              <div class="grade-button-grid">
+                <q-btn v-for="grade in 9" :key="grade"
+                  :color="store.activeVariant === `grade:${grade}` ? 'primary' : 'primary'"
+                  :outline="store.activeVariant !== `grade:${grade}`"
+                  :unelevated="store.activeVariant === `grade:${grade}`" rounded dense no-caps size="sm"
+                  class="grade-btn" :label="$t('article.grade.levelLabel', { grade })"
+                  @click="onGradeButtonClick(grade)" />
+              </div>
+            </div>
+
+            <div class="level-panel-section">
+              <div class="level-panel-subtitle">{{ $t('article.simplify.byCefr.subtitle') }}</div>
+              <div class="level-panel-description">{{ $t('article.simplify.byCefr.description') }}</div>
+              <div class="cefr-button-list">
+                <q-btn v-for="level in CEFR_BUTTON_ORDER" :key="level"
+                  :color="store.activeVariant === (level === 'original' ? 'original' : `cefr:${level}`) ? 'primary' : 'primary'"
+                  :outline="store.activeVariant !== (level === 'original' ? 'original' : `cefr:${level}`)"
+                  :unelevated="store.activeVariant === (level === 'original' ? 'original' : `cefr:${level}`)" rounded
+                  dense no-caps size="sm" align="left" class="cefr-btn" :label="$t(`article.simplify.byCefr.${level}`)"
+                  @click="onCefrButtonClick(level)">
+                  <q-tooltip v-if="level !== 'original'">{{ $t(`article.simplify.byCefr.${level}Tooltip`) }}</q-tooltip>
+                </q-btn>
+              </div>
+            </div>
           </div>
         </transition>
-        <q-btn fab icon="tune" color="secondary" class="level-fab fab-modern"
-          @click="levelSliderOpen = !levelSliderOpen" />
-        <q-btn v-if="!chatOpen" fab icon="chat" color="primary" class="chat-fab fab-modern" @click="chatOpen = true" />
+        <q-btn fab icon="auto_fix_high" color="red-8" class="level-fab fab-modern"
+          @click="levelSliderOpen = !levelSliderOpen">
+          <q-tooltip v-if="!levelSliderOpen" anchor="center right" self="center left">
+            {{ $t('article.readingLevel') }}
+          </q-tooltip>
+        </q-btn>
+        <q-btn v-if="!chatOpen" fab icon="chat" color="red-8" class="chat-fab fab-modern" @click="chatOpen = true">
+          <q-tooltip anchor="center left" self="center right">
+            {{ $t('chat.title') }}
+          </q-tooltip>
+        </q-btn>
         <floating-chat v-if="chatOpen" @close="chatOpen = false" />
       </div>
     </div>
@@ -114,21 +161,16 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, nextTick, ref, computed, watch, onBeforeUnmount } from 'vue';
+import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWikipediaStore, type ReadingLevel } from 'stores/wikipedia';
+import { useWikipediaStore, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
 import { extractHeadings } from 'src/utils/article-headings';
+import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article-export';
 
-const LEVEL_ORDER: ReadingLevel[] = ['original', 'high', 'moderate', 'low', 'minimal'];
-const LEVEL_I18N_KEYS: Record<ReadingLevel, string> = {
-  original: 'article.levels.original',
-  high: 'article.levels.high',
-  moderate: 'article.levels.moderate',
-  low: 'article.levels.low',
-  minimal: 'article.levels.minimal',
-};
+const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 
 export default defineComponent({
   name: 'ArticlePage',
@@ -158,10 +200,17 @@ export default defineComponent({
   setup () {
     const store = useWikipediaStore();
     const { t, locale } = useI18n();
+    const $q = useQuasar();
     const chatOpen = ref(false);
     const infoboxOpen = ref(true);
     const levelSliderOpen = ref(false);
+    const topCancelRef = ref<HTMLElement | null>(null);
+    const articleContentRef = ref<HTMLElement | null>(null);
+    const showBottomCancelButton = ref(false);
+    const copyLoading = ref(false);
+    const wordLoading = ref(false);
     const hasInfobox = computed(() => !!store.article?.infoboxHtml);
+    const showInfobox = computed(() => hasInfobox.value && !store.activeVariant.startsWith('grade:'));
 
     const uiWikiLang = computed(() => {
       const loc = locale.value;
@@ -203,24 +252,52 @@ export default defineComponent({
       return t('article.translateTo', { lang: langName });
     });
 
-    const levelIndex = ref(LEVEL_ORDER.indexOf(store.readingLevel));
-    const currentLevelLabel = computed(() => {
-      const level = LEVEL_ORDER[levelIndex.value] ?? 'original';
-      return t(LEVEL_I18N_KEYS[level]);
-    });
+    const updateCancelButtonsVisibility = () => {
+      if (!store.simplifyLoading) {
+        showBottomCancelButton.value = false;
+        return;
+      }
 
-    const articleFontSizeClass = computed(() => {
-      if (store.fontSizeLevel === 'large') return 'article-font-large';
-      if (store.fontSizeLevel === 'x-large') return 'article-font-x-large';
-      return 'article-font-standard';
-    });
+      const contentEl = articleContentRef.value;
+      if (!contentEl || contentEl.scrollHeight <= window.innerHeight) {
+        showBottomCancelButton.value = false;
+        return;
+      }
+
+      const topCancelEl = topCancelRef.value;
+      if (!topCancelEl) {
+        showBottomCancelButton.value = true;
+        return;
+      }
+
+      const rect = topCancelEl.getBoundingClientRect();
+      const topButtonVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+      showBottomCancelButton.value = !topButtonVisible;
+    };
+
+    const onViewportChange = () => {
+      updateCancelButtonsVisibility();
+    };
 
     watch(
-      () => store.readingLevel,
-      (level) => {
-        levelIndex.value = LEVEL_ORDER.indexOf(level);
+      () => store.simplifyLoading,
+      () => {
+        void nextTick(updateCancelButtonsVisibility);
       },
     );
+
+    watch(
+      () => store.displayedContent,
+      () => {
+        void nextTick(updateCancelButtonsVisibility);
+      },
+    );
+
+    onMounted(() => {
+      window.addEventListener('scroll', onViewportChange, { passive: true });
+      window.addEventListener('resize', onViewportChange);
+      void nextTick(updateCancelButtonsVisibility);
+    });
 
     watch(
       () => store.article?.title,
@@ -231,6 +308,8 @@ export default defineComponent({
     );
 
     onBeforeUnmount(() => {
+      window.removeEventListener('scroll', onViewportChange);
+      window.removeEventListener('resize', onViewportChange);
       document.title = 'ki-pedia';
     });
 
@@ -238,22 +317,63 @@ export default defineComponent({
       levelSliderOpen.value = false;
     }
 
+    function onCancelSimplify () {
+      store.cancelSimplifyByUser();
+      void nextTick(updateCancelButtonsVisibility);
+    }
+
+    async function onCopyToClipboard () {
+      const article = store.article;
+      if (!article || !store.displayedContent) return;
+      copyLoading.value = true;
+      try {
+        await copyArticleToClipboard(article.title, store.displayedContent);
+        $q.notify({ type: 'positive', message: t('article.copySuccess') });
+      } catch (err) {
+        console.error('Copy to clipboard failed', err);
+        $q.notify({ type: 'negative', message: t('article.copyError') });
+      } finally {
+        copyLoading.value = false;
+      }
+    }
+
+    async function onSaveAsWord () {
+      const article = store.article;
+      if (!article || !store.displayedContent) return;
+      wordLoading.value = true;
+      try {
+        await downloadArticleAsWord(article.title, store.displayedContent);
+      } catch (err) {
+        console.error('Word export failed', err);
+        $q.notify({ type: 'negative', message: t('article.wordError') });
+      } finally {
+        wordLoading.value = false;
+      }
+    }
+
     return {
       store,
       chatOpen,
       infoboxOpen,
+      topCancelRef,
+      articleContentRef,
+      showBottomCancelButton,
       hasInfobox,
+      showInfobox,
       levelSliderOpen,
-      levelIndex,
-      currentLevelLabel,
       closeLevelSlider,
-      articleFontSizeClass,
+      onCancelSimplify,
+      copyLoading,
+      wordLoading,
+      onCopyToClipboard,
+      onSaveAsWord,
       tocButtonLabel,
       uiWikiLang,
       langCount,
       langCountLabel,
       showTranslateButton,
       translateButtonLabel,
+      CEFR_BUTTON_ORDER,
     };
   },
 
@@ -337,9 +457,15 @@ export default defineComponent({
       });
     },
 
-    onLevelSliderChange (val: number | null) {
-      this.store.readingLevel = LEVEL_ORDER[val ?? 0] ?? 'original';
-      void this.store.simplify();
+    onCefrButtonClick (level: CefrSliderLevel) {
+      void this.store.applyCefrLevel(level);
+      this.levelSliderOpen = false;
+    },
+
+    onGradeButtonClick (grade: number) {
+      if (grade < 1 || grade > 9) return;
+      void this.store.applyGradeLevel(grade as GradeLevel);
+      this.levelSliderOpen = false;
     },
 
     onLanguageSelect (lang: string) {
@@ -474,6 +600,30 @@ export default defineComponent({
   clear: both;
 }
 
+.article-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.article-action-btn {
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  .article-action-btn :deep(.q-btn__content)>.block {
+    display: none;
+  }
+}
+
+@media print {
+  .article-actions {
+    display: none !important;
+  }
+}
+
 @media (max-width: 600px) {
   .article-card-inner {
     padding: 20px 16px;
@@ -482,18 +632,6 @@ export default defineComponent({
 
 .article-content {
   line-height: 1.7;
-}
-
-.article-font-standard {
-  font-size: 1rem;
-}
-
-.article-font-large {
-  font-size: 1.125rem;
-}
-
-.article-font-x-large {
-  font-size: 1.25rem;
 }
 
 .article-markdown {
@@ -555,48 +693,124 @@ export default defineComponent({
   bottom: 24px;
   right: 24px;
   z-index: 5999;
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+
+  :deep(.q-icon) {
+    font-size: 32px !important;
+  }
 }
 
 .level-fab {
   position: fixed;
-  bottom: 88px;
+  bottom: 100px;
   right: 24px;
   z-index: 5999;
+  flex-shrink: 0;
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+
+  :deep(.q-icon) {
+    font-size: 32px !important;
+  }
 }
 
-.level-slider-panel {
+.level-panel {
   position: fixed;
-  bottom: 150px;
-  right: 28px;
-  z-index: 6000;
+  bottom: 100px;
+  right: 100px;
+  z-index: 5998;
   background: var(--kp-surface);
   border: 1px solid rgba(82, 40, 129, 0.08);
   border-radius: 16px;
-  padding: 16px 12px;
+  padding: 16px 18px 18px;
   box-shadow: var(--kp-shadow-lg);
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  gap: 14px;
 }
 
-.level-slider {
-  height: 180px;
+.level-panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--kp-text-primary);
+  margin-bottom: 2px;
 }
 
-.level-label {
-  white-space: nowrap;
-  font-weight: 500;
+.level-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.slide-up-enter-active,
-.slide-up-leave-active {
+.level-panel-subtitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--kp-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.level-panel-description {
+  font-size: 0.75rem;
+  color: var(--kp-text-secondary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.grade-button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.grade-btn {
+  width: 100%;
+  border-radius: 8px !important;
+  font-size: 0.78rem !important;
+}
+
+.cefr-button-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.cefr-btn {
+  width: 100%;
+  border-radius: 8px !important;
+  font-size: 0.78rem !important;
+  text-align: center;
+}
+
+@media (max-width: 420px) {
+  .level-fab {
+    right: 16px;
+    bottom: 96px;
+  }
+
+  .level-panel {
+    right: 90px;
+    bottom: 96px;
+    width: calc(100vw - 32px);
+    max-height: 60vh;
+  }
+}
+
+.slide-in-enter-active,
+.slide-in-leave-active {
   transition: all 0.2s ease;
 }
 
-.slide-up-enter-from,
-.slide-up-leave-to {
+.slide-in-enter-from,
+.slide-in-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateX(16px) scale(0.97);
 }
 
 .infobox-float {

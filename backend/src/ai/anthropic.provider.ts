@@ -107,7 +107,11 @@ export class AnthropicProvider implements AiProvider {
       throw new Error('Anthropic API did not return a stream');
     }
 
-    return this.readEventStream(response.body, request.onChunk, request.signal);
+    return this.readEventStream(
+      response.body,
+      (chunk) => request.onChunk(chunk),
+      request.signal,
+    );
   }
 
   private buildRequestBody(request: AiCompletionRequest): {

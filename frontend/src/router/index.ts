@@ -5,6 +5,7 @@ import {
   createWebHashHistory,
   createWebHistory,
 } from 'vue-router';
+import { trackPageView } from 'src/composables/useVisitTracking';
 import routes from './routes';
 
 /*
@@ -29,6 +30,16 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     // quasar.conf.js -> build -> vueRouterMode
     // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
+  });
+
+  let initialRouteSeen = false;
+  Router.afterEach(() => {
+    if (!initialRouteSeen) {
+      initialRouteSeen = true;
+      return;
+    }
+
+    void trackPageView(false);
   });
 
   return Router;

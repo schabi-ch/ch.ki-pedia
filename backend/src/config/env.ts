@@ -17,6 +17,12 @@ const envSchema = z
     GEMINI_LOCATION: z.string().default('us-central1'),
     GEMINI_MODEL: z.string().default('gemini-2.0-flash-001'),
     GEMINI_THINKING_BUDGET: z.coerce.number().int().default(0),
+    MYSQL_HOST: z.string().optional(),
+    MYSQL_PORT: z.coerce.number().int().positive().default(3306),
+    MYSQL_USER: z.string().optional(),
+    MYSQL_PASSWORD: z.string().optional(),
+    MYSQL_DATABASE: z.string().optional(),
+    STATS_ADMIN_PASSWORD: z.string().optional(),
   })
   .passthrough();
 

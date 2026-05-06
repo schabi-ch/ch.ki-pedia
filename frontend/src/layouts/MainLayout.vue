@@ -104,6 +104,14 @@
     </q-drawer>
 
     <q-page-container>
+      <q-banner class="preview-banner">
+        <template v-slot:avatar>
+          <q-icon name="construction" color="warning" />
+        </template>
+        <span class="preview-banner-text">
+          <strong>{{ $t('preview.label') }}</strong> {{ $t('preview.message') }}
+        </span>
+      </q-banner>
       <router-view />
     </q-page-container>
 
@@ -206,6 +214,14 @@ export default defineComponent({
         wikiStore.setFontSize(val);
       },
     });
+
+    function applyFontSizeClass (val: FontSizeLevel) {
+      document.documentElement.classList.remove('font-size-large', 'font-size-x-large');
+      if (val === 'large') document.documentElement.classList.add('font-size-large');
+      else if (val === 'x-large') document.documentElement.classList.add('font-size-x-large');
+    }
+
+    watch(() => wikiStore.fontSizeLevel, applyFontSizeClass, { immediate: true });
     const fontSizeOptions = computed<Array<{ label: string; value: FontSizeLevel }>>(() => [
       { label: t('article.fontSize.standard'), value: 'standard' },
       { label: t('article.fontSize.large'), value: 'large' },
@@ -461,6 +477,25 @@ export default defineComponent({
 
 .body--dark .font-size-option-active {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.preview-banner {
+  background: #fff3cd;
+  border-bottom: 2px solid #f0a500;
+  color: #7a4f00;
+  font-size: 0.85rem;
+  padding: 6px 16px;
+  border-radius: 0;
+}
+
+.body--dark .preview-banner {
+  background: #3a2e00;
+  border-bottom-color: #f0a500;
+  color: #ffd966;
+}
+
+.preview-banner-text {
+  line-height: 1.4;
 }
 
 .page-footer {
