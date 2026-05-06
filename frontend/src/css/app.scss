@@ -1,1 +1,369 @@
-// app global css in SCSS form
+//////////////////////////////////////////////////////////////////////////////////
+// Fonts
+//////////////////////////////////////////////////////////////////////////////////
+
+@font-face {
+  font-family: 'SpaceGrotesk';
+  src: url('/fonts/SpaceGrotesk-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Layout
+//////////////////////////////////////////////////////////////////////////////////
+///
+
+// CSS Custom Properties for gradient theming
+:root {
+  --kp-gradient-start: #f0e8f7; // very light violet
+  --kp-gradient-mid: #e8edf8; // light blue-grey
+  --kp-gradient-end: #f5f7fa; // near-white blue
+  --kp-surface: #ffffff;
+  --kp-surface-elevated: #ffffff;
+  --kp-shadow-color: rgba(82, 40, 129, 0.08);
+  --kp-shadow-lg: 0 8px 32px rgba(82, 40, 129, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --kp-shadow-sm: 0 2px 12px rgba(82, 40, 129, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  --kp-text-primary: #0e1b33;
+  --kp-text-secondary: #5a6478;
+}
+
+.body--dark {
+  --kp-gradient-start: #1a1225; // dark violet
+  --kp-gradient-mid: #141320; // dark blue-violet
+  --kp-gradient-end: #121212; // near-black
+  --kp-surface: #1d1d1d;
+  --kp-surface-elevated: #242424;
+  --kp-shadow-color: rgba(0, 0, 0, 0.3);
+  --kp-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --kp-shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.2), 0 1px 4px rgba(0, 0, 0, 0.1);
+  --kp-text-primary: #e8e6f0;
+  --kp-text-secondary: #9a97a8;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 60px;
+  font-size: 16px;
+
+  &.font-size-large {
+    font-size: 18px;
+  }
+
+  &.font-size-x-large {
+    font-size: 20px;
+  }
+}
+body {
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: normal;
+  font-feature-settings:
+    'kern' 1,
+    'cv11' 1;
+  -webkit-font-feature-settings:
+    'kern' 1,
+    'cv11' 1;
+  -ms-font-feature-settings:
+    'kern' 1,
+    'cv11' 1;
+  -moz-font-feature-settings:
+    'kern' 1,
+    'cv11' 1;
+  color: var(--kp-text-primary);
+  background: linear-gradient(
+    135deg,
+    var(--kp-gradient-start) 0%,
+    var(--kp-gradient-mid) 50%,
+    var(--kp-gradient-end) 100%
+  );
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+// Override Quasar page background so gradient shows through
+.q-page {
+  background: transparent !important;
+}
+.q-page-container {
+  background: transparent !important;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Global transitions
+//////////////////////////////////////////////////////////////////////////////////
+a,
+.q-btn,
+.q-item,
+.q-card {
+  transition: all 0.2s ease;
+}
+
+.q-card {
+  border-radius: 16px;
+}
+
+// Smooth link interaction
+a:hover {
+  opacity: 0.85;
+}
+
+// Selection color matching brand
+::selection {
+  background: rgba(82, 40, 129, 0.15);
+  color: inherit;
+}
+
+.body--dark ::selection {
+  background: rgba(82, 40, 129, 0.3);
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(82, 40, 129, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 40, 129, 0.25);
+}
+
+.body--dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.body--dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+// Error banner modernization
+.q-banner {
+  border-radius: 12px;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Legal / Info pages
+//////////////////////////////////////////////////////////////////////////////////
+
+.legal-page {
+  padding: 32px 16px 48px;
+  background:
+    radial-gradient(circle at top right, rgba(82, 40, 129, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 247, 251, 0.98));
+}
+
+.legal-page__container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.legal-page__card {
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(23, 30, 56, 0.08);
+}
+
+.legal-page__eyebrow {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a4aa3;
+  margin-bottom: 12px;
+}
+
+.legal-page__title {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.1;
+}
+
+.legal-page__lead {
+  margin: 16px 0 0;
+  font-size: 1.05rem;
+  color: #465066;
+}
+
+.legal-page__section h2 {
+  margin: 30px 0 0 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.legal-page__section h2:first-of-type {
+  margin-top: 0;
+}
+
+.legal-page__section p {
+  margin: 0 0 8px;
+  color: #465066;
+  line-height: 1.7;
+}
+
+.legal-page__link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.body--dark .legal-page {
+  background:
+    radial-gradient(circle at top right, rgba(167, 138, 212, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(20, 24, 35, 0.96), rgba(13, 16, 24, 0.98));
+}
+
+.body--dark .legal-page__card {
+  background: rgba(20, 24, 35, 0.9);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.body--dark .legal-page__title,
+.body--dark .legal-page__section h2 {
+  color: #f3f5fb;
+}
+
+.body--dark .legal-page__lead,
+.body--dark .legal-page__section p {
+  color: #c8cfdd;
+}
+
+.body--dark .legal-page__link {
+  color: #f3f5fb;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Header Styles
+//////////////////////////////////////////////////////////////////////////////////
+.header-logo {
+  height: 80px;
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+}
+.header-title {
+  margin-left: 70px;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Font Styles
+//////////////////////////////////////////////////////////////////////////////////
+
+// Automatische Silbentrennung
+html[lang='de'],
+body[lang='de'],
+[lang='de'] {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  word-break: break-word;
+}
+
+// Inter > in index.template.html
+@supports (font-variation-settings: normal) {
+  :root {
+    font-family: InterVariable, sans-serif;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Print Styles
+//////////////////////////////////////////////////////////////////////////////////
+@media print {
+  // Hide all UI chrome
+  .q-header,
+  .q-drawer,
+  .q-drawer__backdrop,
+  .q-page-sticky,
+  .chat-fab,
+  .info-fab,
+  .level-fab,
+  .level-slider-panel,
+  .floating-chat,
+  .q-footer,
+  .page-footer,
+  .article-header-bar,
+  .infobox-float,
+  .fab-modern {
+    display: none !important;
+  }
+
+  // Reset background for print
+  body,
+  .q-page,
+  .q-page-container,
+  .q-layout {
+    background: white !important;
+    color: black !important;
+  }
+
+  // Dark mode override for print
+  .body--dark {
+    --kp-text-primary: #000;
+    --kp-text-secondary: #333;
+    --kp-surface: #fff;
+  }
+
+  // Article card: remove visual decoration
+  .article-card {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  .article-card-inner {
+    padding: 0 !important;
+  }
+
+  // Article title styling for print
+  .article-title {
+    font-size: 2em !important;
+    margin-bottom: 16px;
+  }
+
+  // Content: full width
+  .article-content {
+    max-width: 100% !important;
+  }
+
+  // Figures: inline for print, no float
+  figure {
+    float: none !important;
+    max-width: 100% !important;
+    margin: 16px 0 !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+
+  // Links: print like normal text
+  .article-content a[href] {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  .article-content a[href]::after {
+    content: none !important;
+  }
+
+  // Prevent page breaks inside headings
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  // Page margins
+  @page {
+    margin: 2cm;
+  }
+}

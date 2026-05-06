@@ -1,8 +1,16 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": ".",
+    },
+  ],
+  "settings": {
+    "chat.tools.terminal.autoApprove": {
+      "/^mkdir -p /home/christof/ch\\.ki-pedia/openspec/specs/html-to-markdown /home/christof/ch\\.ki-pedia/openspec/specs/article-version-cache /home/christof/ch\\.ki-pedia/openspec/specs/article-translation /home/christof/ch\\.ki-pedia/openspec/specs/article-toc-sidebar$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "openspec": true,
+    },
+  },
 }

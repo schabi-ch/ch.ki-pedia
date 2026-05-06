@@ -12,15 +12,28 @@ export class WikipediaController {
   constructor(private readonly wikipediaService: WikipediaService) {}
 
   @Get('search')
-  search(@Query('q') query: string) {
+  search(@Query('q') query: string, @Query('lang') lang?: string) {
     if (!query?.trim()) {
       throw new BadRequestException('Query parameter "q" is required');
     }
-    return this.wikipediaService.search(query.trim());
+    return this.wikipediaService.search(query.trim(), lang);
   }
 
   @Get('article/:title')
-  getArticle(@Param('title') title: string) {
-    return this.wikipediaService.getArticle(title);
+  getArticle(@Param('title') title: string, @Query('lang') lang?: string) {
+    return this.wikipediaService.getArticle(title, lang);
+  }
+
+  @Get('article/:title/languages')
+  getLanguages(@Param('title') title: string, @Query('lang') lang?: string) {
+    return this.wikipediaService.getLanguageLinks(title, lang ?? 'en');
+  }
+
+  @Get('suggest')
+  suggest(@Query('q') query: string, @Query('lang') lang?: string) {
+    if (!query?.trim()) {
+      return [];
+    }
+    return this.wikipediaService.prefixSearch(query.trim(), lang);
   }
 }

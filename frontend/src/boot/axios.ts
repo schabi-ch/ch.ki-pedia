@@ -1,5 +1,14 @@
 import { defineBoot } from '#q-app/wrappers';
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosError, type AxiosInstance } from 'axios';
+import { Notify } from 'quasar';
+import messages from 'src/i18n';
+import { LOCALE_STORAGE_KEY } from './i18n';
+
+export type ApiErrorPayload = {
+  message?: string | string[];
+  error?: string;
+  details?: string;
+};
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -16,6 +25,76 @@ declare module 'vue' {
 // for each client)
 const api = axios.create({ baseURL: '/api' });
 
+function getLocalizedMessage(path: string, fallback: string): string {
+  let locale: keyof typeof messages = 'de';
+
+  try {
+    const savedLocale = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (savedLocale && savedLocale in messages) {
+      locale = savedLocale as keyof typeof messages;
+    }
+  } catch {
+    locale = 'de';
+  }
+
+  const value = path
+    .split('.')
+    .reduce<unknown>((current, segment) => {
+      if (current && typeof current === 'object' && segment in current) {
+        return (current as Record<string, unknown>)[segment];
+      }
+
+      return undefined;
+    }, messages[locale]);
+
+  return typeof value === 'string' ? value : fallback;
+}
+
+function extractApiErrorMessage(error: AxiosError<ApiErrorPayload>): string {
+  const payload = error.response?.data;
+  const payloadMessage = Array.isArray(payload?.message)
+    ? payload.message.join(' ')
+    : payload?.message;
+
+  return payloadMessage
+    ?? payload?.details
+    ?? payload?.error
+    ?? error.message
+    ?? getLocalizedMessage('failed', 'Action failed');
+}
+
+function notifyError(message: string): void {
+  Notify.create({
+    type: 'negative',
+    message,
+    position: 'bottom',
+  });
+}
+
+function notifySuccess(message: string): void {
+  Notify.create({
+    type: 'positive',
+    message,
+    position: 'bottom',
+  });
+}
+
+function isSilentError(error: AxiosError<ApiErrorPayload>): boolean {
+  const headers = error.config?.headers as Record<string, unknown> | undefined;
+  return headers?.['X-Silent-Error'] === 'true';
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiErrorPayload>) => {
+    if (!axios.isCancel(error) && !isSilentError(error)) {
+      notifyError(extractApiErrorMessage(error));
+    }
+
+    return Promise.reject(error);
+  },
+);
+
 export default defineBoot(({ app }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
@@ -29,3 +108,4 @@ export default defineBoot(({ app }) => {
 });
 
 export { api };
+export { getLocalizedMessage, notifySuccess, extractApiErrorMessage };

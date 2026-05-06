@@ -1,0 +1,9 @@
+{
+  "name": "ch-ki-pedia-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:status": "node scripts/dev.mjs --status",
+    "dev:reset": "node scripts/dev.mjs --reset"
+  }
+}
