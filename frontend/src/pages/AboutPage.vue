@@ -38,6 +38,17 @@
           entwickelt.
 
 
+          <h2>Diese Seite ist über verschiedene URLs erreichbar</h2>
+          Der Name der Seite spielt mit den Wörtern "Wikipedia" und "KI" (Künstliche Intelligenz), resp. "AI" im
+          Französischen und Italienischen. Um die Seite leicht zugänglich zu machen, ist sie über mehrere URLs
+          erreichbar, die alle auf dieselbe Webapplikation verweisen:
+          <ul>
+            <li><a href="https://ki-pedia.ch">ki-pedia.ch</a></li>
+            <li><a href="https://ki-pedia.org">ki-pedia.org</a></li>
+            <li><a href="https://wikiped-ia.ch">wikiped-ia.ch</a></li>
+            <li><a href="https://wikiped-ia.org">wikiped-ia.org</a></li>
+          </ul>
+
           <h2>Inhalte und Quellen</h2>
           Die angezeigten Inhalte basieren auf Daten aus Wikipedia. Externe Inhalte,
           Artikeltexte, Vorschaubilder und Metadaten bleiben Eigentum ihrer jeweiligen Rechteinhaber

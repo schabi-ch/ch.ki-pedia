@@ -98,7 +98,9 @@ export default {
     simplifyCancelledByUser: '... (Interrupziun tras l\'utilisader)',
     simplifiedDone: 'Il text e vegn ussa reformulà.',
     translating: "L'artitgel vegn tradui…",
-    tocTitle: 'Inhaltsverzeichnis anzeigen',
+    cancelTranslate: 'Interrumper la translaziun',
+    tocTitle: 'Mussar la survista dal cuntegn',
+    tocHeader: 'Survista dal cuntegn',
     fontSize: {
       standard: 'Standard',
       large: 'Pli grond',
@@ -113,6 +115,8 @@ export default {
     wordError: 'Export Word betg reussì',
     availableLanguagesLink1: '{count} lingua',
     availableLanguagesLinkN: '{count} linguas',
+    languagesSuggested: 'Linguas proponidas',
+    languagesWorldwide: 'Globalmain',
     translateTo: 'Translatar en {lang}',
   },
   languages: {

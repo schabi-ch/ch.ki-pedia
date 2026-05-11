@@ -98,7 +98,9 @@ export default {
     simplifyCancelledByUser: '... (Cancelled by the user)',
     simplifiedDone: 'The text has now been rewritten.',
     translating: 'Translating article…',
-    tocTitle: 'Inhaltsverzeichnis anzeigen',
+    cancelTranslate: 'Cancel translation',
+    tocTitle: 'Show table of contents',
+    tocHeader: 'Table of contents',
     fontSize: {
       standard: 'Standard',
       large: 'Larger',
@@ -113,6 +115,8 @@ export default {
     wordError: 'Word export failed',
     availableLanguagesLink1: '{count} language',
     availableLanguagesLinkN: '{count} languages',
+    languagesSuggested: 'Suggested languages',
+    languagesWorldwide: 'Worldwide',
     translateTo: 'Translate to {lang}',
   },
   languages: {

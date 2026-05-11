@@ -24,10 +24,26 @@
               <span v-if="langCount > 0" class="text-caption text-grey-6 article-lang-info">
                 {{ $t('article.langLabelStart') }}
                 <a href="#" class="article-lang-link" @click.prevent>{{ langCountLabel
-                  }}<q-menu anchor="bottom left" self="top left" class="lang-menu">
+                }}<q-menu anchor="bottom left" self="top left" class="lang-menu">
                     <q-list dense style="min-width: 200px; max-height: 400px" class="scroll">
-                      <q-item v-for="opt in articleLangOptions" :key="opt.value" clickable v-close-popup
-                        :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
+                      <q-item-label v-if="articleLanguageGroups.suggested.length > 0" header class="text-grey-7">
+                        {{ $t('article.languagesSuggested') }}
+                      </q-item-label>
+                      <q-item v-for="opt in articleLanguageGroups.suggested" :key="`suggested:${opt.value}`" clickable
+                        v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
+                        <q-item-section>{{ opt.label }}</q-item-section>
+                        <q-item-section v-if="opt.value === store.articleLang" side>
+                          <q-icon name="check" size="xs" color="primary" />
+                        </q-item-section>
+                      </q-item>
+                      <q-separator
+                        v-if="articleLanguageGroups.suggested.length > 0 && articleLanguageGroups.worldwide.length > 0"
+                        spaced />
+                      <q-item-label v-if="articleLanguageGroups.worldwide.length > 0" header class="text-grey-7">
+                        {{ $t('article.languagesWorldwide') }}
+                      </q-item-label>
+                      <q-item v-for="opt in articleLanguageGroups.worldwide" :key="`worldwide:${opt.value}`" clickable
+                        v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
                         <q-item-section>{{ opt.label }}</q-item-section>
                         <q-item-section v-if="opt.value === store.articleLang" side>
                           <q-icon name="check" size="xs" color="primary" />
@@ -37,11 +53,11 @@
                   </q-menu>
                 </a>
                 {{ $t('article.langLabelEnd') }}
+                <q-btn v-if="showTranslateButton" color="primary" dense no-caps unelevated :label="translateActionLabel"
+                  :icon="translateActionIcon" @click="onTranslateToUiLang" class="translate-btn q-ml-sm" />
               </span>
             </div>
             <div class="article-header-actions row items-center q-gutter-sm no-wrap">
-              <q-btn v-if="showTranslateButton" color="primary" dense no-caps unelevated :label="translateButtonLabel"
-                icon="translate" @click="onTranslateToUiLang" :loading="store.translateLoading" class="translate-btn" />
               <a :href="store.article.url" target="_blank" rel="noopener noreferrer" class="text-caption text-grey-6">
                 {{ $t('article.sourceLink') }}
                 <q-icon name="open_in_new" size="xs" />
@@ -81,31 +97,39 @@
               <div class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
-            <div v-if="store.translateLoading" class="text-center q-py-lg">
+            <div v-if="store.translateLoading" class="text-center q-py-sm">
               <q-spinner color="primary" />
               <div class="text-grey-6 q-mt-sm">
                 {{ $t('article.translating') }}
               </div>
             </div>
-            <div v-else>
-              <div v-if="store.simplifyLoading" ref="topCancelRef" class="text-center q-py-sm">
-                <q-spinner color="primary" />
-                <div class="text-grey-6 q-mt-sm">
-                  {{ $t('article.simplifying') }}
+            <div v-if="store.simplifyLoading" ref="topCancelRef" class="text-center q-py-sm">
+              <q-spinner color="primary" />
+              <div class="text-grey-6 q-mt-sm">
+                {{ $t('article.simplifying') }}
+              </div>
+              <q-btn outline rounded dense no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
+                class="q-mt-sm" @click="onCancelSimplify" />
+            </div>
+            <div v-if="showInfobox && !infoboxOpen" class="info-button-float">
+              <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab" @click="infoboxOpen = true" />
+            </div>
+            <div class="article-content text-body1" ref="articleContentRef">
+              <div v-if="showOriginalHtmlContent" class="article-html" v-html="store.article.contentHtml" />
+              <q-markdown v-else :src="store.displayedContent" class="article-markdown" />
+            </div>
+            <div v-if="showAppendix" class="article-appendix q-mt-lg">
+              <q-expansion-item v-for="(section, idx) in store.article.appendixSections" :key="section.kind + ':' + idx"
+                :icon="appendixIcon(section.kind)" :label="section.title"
+                header-class="article-appendix-header text-weight-medium" expand-separator>
+                <div class="article-appendix-body q-pa-md">
+                  <q-markdown :src="section.markdown" class="article-markdown" />
                 </div>
-                <q-btn outline rounded dense no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
-                  class="q-mt-sm" @click="onCancelSimplify" />
-              </div>
-              <div v-if="showInfobox && !infoboxOpen" class="info-button-float">
-                <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab" @click="infoboxOpen = true" />
-              </div>
-              <div class="article-content text-body1" ref="articleContentRef">
-                <q-markdown :src="store.displayedContent" class="article-markdown" />
-              </div>
-              <div v-if="showBottomCancelButton" class="simplify-cancel-bottom">
-                <q-btn outline rounded no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
-                  @click="onCancelSimplify" />
-              </div>
+              </q-expansion-item>
+            </div>
+            <div v-if="showBottomCancelButton" class="simplify-cancel-bottom">
+              <q-btn outline rounded no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
+                @click="onCancelSimplify" />
             </div>
           </q-card-section>
         </q-card>
@@ -172,6 +196,14 @@ import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 
+function decodeRouteTitleSafely (title: string): string {
+  try {
+    return decodeURIComponent(title);
+  } catch {
+    return title;
+  }
+}
+
 export default defineComponent({
   name: 'ArticlePage',
 
@@ -211,6 +243,25 @@ export default defineComponent({
     const wordLoading = ref(false);
     const hasInfobox = computed(() => !!store.article?.infoboxHtml);
     const showInfobox = computed(() => hasInfobox.value && !store.activeVariant.startsWith('grade:'));
+    const showOriginalHtmlContent = computed(
+      () => store.activeVariant === 'original' && !store.simplifiedContent && !!store.article?.contentHtml,
+    );
+    const showAppendix = computed(
+      () =>
+        store.activeVariant === 'original' &&
+        !!store.article &&
+        (store.article.appendixSections?.length ?? 0) > 0,
+    );
+    function appendixIcon (kind: string): string {
+      switch (kind) {
+        case 'bibliography': return 'menu_book';
+        case 'external_links': return 'link';
+        case 'references': return 'format_list_numbered';
+        case 'see_also': return 'visibility';
+        case 'notes_misc': return 'sticky_note_2';
+        default: return 'article';
+      }
+    }
 
     const uiWikiLang = computed(() => {
       const loc = locale.value;
@@ -230,7 +281,7 @@ export default defineComponent({
     const tocButtonLabel = computed(() => t('article.tocTitle'));
 
     const showTranslateButton = computed(() => {
-      return store.articleLang !== uiWikiLang.value;
+      return store.articleLang !== uiWikiLang.value || store.translateLoading;
     });
 
     const translateButtonLabel = computed(() => {
@@ -250,6 +301,14 @@ export default defineComponent({
         langName = displayNames?.of(uiWikiLang.value) ?? uiWikiLang.value;
       }
       return t('article.translateTo', { lang: langName });
+    });
+
+    const translateActionLabel = computed(() => {
+      return store.translateLoading ? t('article.cancelTranslate') : translateButtonLabel.value;
+    });
+
+    const translateActionIcon = computed(() => {
+      return store.translateLoading ? 'stop' : 'translate';
     });
 
     const updateCancelButtonsVisibility = () => {
@@ -360,6 +419,9 @@ export default defineComponent({
       showBottomCancelButton,
       hasInfobox,
       showInfobox,
+      showOriginalHtmlContent,
+      showAppendix,
+      appendixIcon,
       levelSliderOpen,
       closeLevelSlider,
       onCancelSimplify,
@@ -373,6 +435,8 @@ export default defineComponent({
       langCountLabel,
       showTranslateButton,
       translateButtonLabel,
+      translateActionLabel,
+      translateActionIcon,
       CEFR_BUTTON_ORDER,
     };
   },
@@ -418,9 +482,37 @@ export default defineComponent({
         ];
       }
       return langs.map((l) => ({
-        label: labelFor(l.lang),
+        label: l.autonym || l.langName || labelFor(l.lang),
         value: l.lang,
       }));
+    },
+
+    articleLanguageGroups () {
+      const options = this.articleLangOptions;
+      const uiLocale = String(this.$i18n.locale ?? 'de');
+      const uiWikiLang = uiLocale === 'en-US' ? 'en' : uiLocale;
+
+      const suggestedCodes = new Set<string>([
+        this.store.articleLang,
+        uiWikiLang,
+        'de',
+        'fr',
+        'it',
+        'rm',
+        'en',
+      ]);
+
+      if (typeof navigator !== 'undefined') {
+        for (const raw of navigator.languages ?? []) {
+          const normalized = raw.toLowerCase().replace(/_/g, '-');
+          suggestedCodes.add(normalized);
+          suggestedCodes.add(normalized.split('-')[0] ?? normalized);
+        }
+      }
+
+      const suggested = options.filter((opt) => suggestedCodes.has(opt.value));
+      const worldwide = options.filter((opt) => !suggestedCodes.has(opt.value));
+      return { suggested, worldwide };
     },
   },
 
@@ -429,7 +521,7 @@ export default defineComponent({
       immediate: true,
       handler (title: string) {
         if (title) {
-          void this.store.loadArticle(decodeURIComponent(title));
+          void this.store.loadArticle(decodeRouteTitleSafely(title));
         }
       },
     },
@@ -453,6 +545,9 @@ export default defineComponent({
 
         if (heading) {
           el.id = heading.id;
+          el.addEventListener('click', (event) => {
+            event.preventDefault(); // Verhindert das automatische Scrollen
+          });
         }
       });
     },
@@ -473,6 +568,10 @@ export default defineComponent({
     },
 
     onTranslateToUiLang () {
+      if (this.store.translateLoading) {
+        this.store.cancelTranslateByUser();
+        return;
+      }
       void this.store.translate(this.uiWikiLang);
     },
 
@@ -515,7 +614,10 @@ export default defineComponent({
 }
 
 .article-lang-info {
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .article-lang-link {
@@ -648,12 +750,52 @@ export default defineComponent({
 .article-content :deep(h2),
 .article-content :deep(h3) {
   scroll-margin-top: 84px;
+  font-weight: bold;
+}
+
+.article-content :deep(h1) {
+  font-size: 1.9rem;
+  line-height: 1.25;
+}
+
+.article-content :deep(h2) {
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+
+.article-content :deep(h3) {
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+.article-content :deep(h4) {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  font-weight: 700;
 }
 
 .article-content :deep(a) {
   color: inherit;
   text-decoration: underline;
   text-decoration-color: currentColor;
+}
+
+/* Links in headings should not look like links */
+.article-content :deep(h1 a),
+.article-content :deep(h2 a),
+.article-content :deep(h3 a),
+.article-content :deep(h4 a) {
+  text-decoration: none;
+  color: inherit;
+  cursor: text;
+
+}
+
+.article-content :deep(h1 a:hover),
+.article-content :deep(h2 a:hover),
+.article-content :deep(h3 a:hover),
+.article-content :deep(h4 a:hover) {
+  text-decoration: none;
 }
 
 .article-html {
@@ -666,14 +808,57 @@ export default defineComponent({
 }
 
 .article-html :deep(table) {
-  display: block;
   max-width: 100%;
-  overflow-x: auto;
 }
 
 .article-html :deep(a) {
   color: inherit;
   text-decoration: underline;
+}
+
+/* Positionskarte: keep the map base size stable so absolute label positions stay aligned. */
+.article-html :deep(table.float-right[style*='width:min-content']),
+.article-html :deep(table.float-right[style*='width: min-content']) {
+  width: 480px;
+  min-width: 480px;
+  max-width: 480px;
+}
+
+.article-html :deep(table.float-right[style*='width:min-content'] > tbody > tr > td > div),
+.article-html :deep(table.float-right[style*='width: min-content'] > tbody > tr > td > div) {
+  width: 480px;
+  min-width: 480px;
+  max-width: 480px;
+}
+
+.article-html :deep(table.float-right[style*='width:min-content'] > tbody > tr > td > div > figure),
+.article-html :deep(table.float-right[style*='width: min-content'] > tbody > tr > td > div > figure) {
+  float: none !important;
+  clear: none !important;
+  width: 480px;
+  min-width: 480px;
+  max-width: 480px !important;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.article-html :deep(table.float-right[style*='width:min-content'] > tbody > tr > td > div > figure img.mw-file-element),
+.article-html :deep(table.float-right[style*='width: min-content'] > tbody > tr > td > div > figure img.mw-file-element) {
+  display: block;
+  width: 480px;
+  min-width: 480px;
+  max-width: 480px;
+  height: auto;
+  border-radius: 0;
+}
+
+.article-html :deep(table.float-right[style*='width:min-content'] > tbody > tr > td > div > figure figcaption),
+.article-html :deep(table.float-right[style*='width: min-content'] > tbody > tr > td > div > figure figcaption) {
+  display: none;
 }
 
 .fab-modern {

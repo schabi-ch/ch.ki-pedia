@@ -167,7 +167,9 @@ describe('AiService', () => {
 
   it('builds grade summary prompts with three reading levels', async () => {
     fetchMock.mockResolvedValue(
-      createJsonResponse({ content: [{ type: 'text', text: 'Zusammenfassung' }] }),
+      createJsonResponse({
+        content: [{ type: 'text', text: 'Zusammenfassung' }],
+      }),
     );
     const service = new AiService(
       createConfigService({
@@ -215,7 +217,7 @@ describe('AiService', () => {
     expect(body.messages[0].content[0].text).toBe(longText);
   });
 
-  it('uses the Anthropic default token limit for translate requests', async () => {
+  it('uses the simplify token limit for translate requests', async () => {
     fetchMock.mockResolvedValue(
       createJsonResponse({ content: [{ type: 'text', text: 'Traduction' }] }),
     );
@@ -231,7 +233,48 @@ describe('AiService', () => {
     });
 
     const body = getFetchBody<AnthropicRequestBody>();
-    expect(body.max_tokens).toBe(4096);
+    expect(body.max_tokens).toBe(32768);
+  });
+
+  it('streams translated chunks from Anthropic', async () => {
+    fetchMock.mockResolvedValue(
+      createStreamResponse([
+        'event: content_block_delta\n',
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Bonjour "}}\n\n',
+        'event: content_block_delta\n',
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"le monde"}}\n\n',
+        'event: message_stop\n',
+        'data: {"type":"message_stop"}\n\n',
+      ]),
+    );
+    const service = new AiService(
+      createConfigService({
+        AI_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'anthropic-key',
+      }),
+    );
+    const chunks: string[] = [];
+
+    await expect(
+      service.translateStream('Hallo Welt', 'de', 'fr', (chunk) => {
+        chunks.push(chunk);
+      }),
+    ).resolves.toEqual({ translated: 'Bonjour le monde' });
+
+    expect(chunks).toEqual(['Bonjour ', 'le monde']);
+    const body = getFetchBody<
+      AnthropicRequestBody & { stream?: boolean; system?: string }
+    >();
+    expect(body.stream).toBe(true);
+    expect(body.system).toContain('Preserve the original Markdown and HTML structure');
+  });
+
+  it('fails translation when provider is not configured', async () => {
+    const service = new AiService(createConfigService({}));
+
+    await expect(service.translate('Original text', 'de', 'fr')).rejects.toThrow(
+      'AI translation is not configured',
+    );
   });
 
   it('uses the regional Vertex endpoint when a Gemini API key is configured', async () => {

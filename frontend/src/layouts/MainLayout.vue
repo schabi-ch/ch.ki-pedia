@@ -10,11 +10,11 @@
           <img v-else src="~assets/img/title-wikiped-ia.svg" class="header-title" style="height: 32px;" /> -->
 
           <div class="header-title-text">
-            <template v-if="currentLocale === 'de'">
+            <template v-if="branding.isKiPediaBrand">
               <span style="color: #A58AC5;">wi</span>ki-pedia<span style="color: #A58AC5;">.</span>
             </template>
             <template v-else>
-              wikiped-IA<span style="color: #A58AC5;">.</span>
+              {{ branding.headerLogo }}<span style="color: #A58AC5;">.</span>
             </template>
           </div>
         </router-link>
@@ -104,14 +104,6 @@
     </q-drawer>
 
     <q-page-container>
-      <q-banner class="preview-banner">
-        <template v-slot:avatar>
-          <q-icon name="construction" color="warning" />
-        </template>
-        <span class="preview-banner-text">
-          <strong>{{ $t('preview.label') }}</strong> {{ $t('preview.message') }}
-        </span>
-      </q-banner>
       <router-view />
     </q-page-container>
 
@@ -136,6 +128,7 @@ import { saveLocale } from 'boot/i18n';
 import { useWikipediaStore, type FontSizeLevel } from 'stores/wikipedia';
 import ArticleToc from 'components/ArticleToc.vue';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
+import { resolveCurrentBranding } from 'src/utils/branding';
 
 const DARK_STORAGE_KEY = 'ki-pedia-dark';
 
@@ -166,6 +159,7 @@ export default defineComponent({
     } = useSearchSuggestions();
     const hasArticle = computed(() => !!wikiStore.article);
     const isArticlePage = computed(() => String(route.path).startsWith('/article/'));
+    const branding = resolveCurrentBranding();
 
     watch(() => wikiStore.article, () => {
       if (!wikiStore.article) {
@@ -238,6 +232,7 @@ export default defineComponent({
 
     return {
       router,
+      branding,
       localeOptions,
       currentLocale,
       showHeaderBrand,
@@ -477,25 +472,6 @@ export default defineComponent({
 
 .body--dark .font-size-option-active {
   background: rgba(255, 255, 255, 0.06);
-}
-
-.preview-banner {
-  background: #fff3cd;
-  border-bottom: 2px solid #f0a500;
-  color: #7a4f00;
-  font-size: 0.85rem;
-  padding: 6px 16px;
-  border-radius: 0;
-}
-
-.body--dark .preview-banner {
-  background: #3a2e00;
-  border-bottom-color: #f0a500;
-  color: #ffd966;
-}
-
-.preview-banner-text {
-  line-height: 1.4;
 }
 
 .page-footer {

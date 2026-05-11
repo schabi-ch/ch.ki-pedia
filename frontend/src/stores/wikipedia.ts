@@ -28,15 +28,23 @@ function persistFontSize(val: FontSizeLevel): void {
   }
 }
 
-function getSavedTocOpen(): boolean {
+function getStoredTocOpen(): boolean | null {
   try {
     const raw = LocalStorage.getItem(TOC_OPEN_STORAGE_KEY) as unknown;
     if (typeof raw === 'boolean') return raw;
     if (typeof raw === 'string') return raw === 'true';
-    return false;
+    return null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function getSavedTocOpen(): boolean {
+  return getStoredTocOpen() ?? true;
+}
+
+function hasStoredTocOpen(): boolean {
+  return getStoredTocOpen() !== null;
 }
 
 function persistTocOpen(val: boolean): void {
@@ -62,11 +70,25 @@ export interface SearchResult {
   thumbnail: string | null;
 }
 
+export type AppendixKind =
+  | 'bibliography'
+  | 'see_also'
+  | 'notes_misc'
+  | 'external_links'
+  | 'references';
+
+export interface AppendixSection {
+  kind: AppendixKind;
+  title: string;
+  markdown: string;
+}
+
 export interface Article {
   title: string;
   contentMarkdown: string;
   contentHtml: string;
   infoboxHtml: string;
+  appendixSections: AppendixSection[];
   url: string;
 }
 
@@ -94,6 +116,9 @@ export interface ChatMessage {
 export interface ArticleLangLink {
   lang: string;
   title: string;
+  wikiLang?: string;
+  langName?: string;
+  autonym?: string;
 }
 
 export const useWikipediaStore = defineStore('wikipedia', () => {
@@ -115,8 +140,11 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const translateLoading = ref(false);
   const articleError = ref('');
   const simplifySourceText = ref('');
+  const translateSourceLang = ref<string | null>(null);
   let simplifyAbortController: AbortController | null = null;
   let simplifyRunId = 0;
+  let translateAbortController: AbortController | null = null;
+  let translateRunId = 0;
 
   const displayedContent = computed(() => {
     if (!article.value) return '';
@@ -127,7 +155,12 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     ) {
       return '';
     }
-    if (activeVariant.value === 'original' && articleLang.value === getWikiLang()) {
+    // Keep showing streamed/cached translated content even when articleLang already matches UI lang.
+    if (
+      activeVariant.value === 'original' &&
+      articleLang.value === getWikiLang() &&
+      !simplifiedContent.value
+    ) {
       return article.value.contentMarkdown;
     }
     return simplifiedContent.value || article.value.contentMarkdown;
@@ -163,6 +196,24 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   function abortSimplifyStream() {
     simplifyAbortController?.abort();
     simplifyAbortController = null;
+  }
+
+  function abortTranslateStream() {
+    translateRunId += 1;
+    translateAbortController?.abort();
+    translateAbortController = null;
+  }
+
+  function cancelTranslateByUser() {
+    if (!translateLoading.value) return;
+    const sourceLang = translateSourceLang.value;
+    abortTranslateStream();
+    translateLoading.value = false;
+    translateSourceLang.value = null;
+    if (sourceLang) {
+      articleLang.value = sourceLang;
+    }
+    simplifiedContent.value = '';
   }
 
   function cancelSimplifyByUser() {
@@ -213,6 +264,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   async function loadArticle(title: string) {
     abortSimplifyStream();
+    abortTranslateStream();
+    translateLoading.value = false;
+    translateSourceLang.value = null;
     articleLoading.value = true;
     articleError.value = '';
     article.value = null;
@@ -225,7 +279,13 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       const response = await api.get<Article>(`/wikipedia/article/${encodeURIComponent(title)}`, {
         params: { lang: getWikiLang() },
       });
-      article.value = response.data;
+      article.value = {
+        ...response.data,
+        appendixSections: response.data.appendixSections ?? [],
+      };
+      if (!hasStoredTocOpen()) {
+        setTocOpen(true, false);
+      }
       // Cache the original version
       setVersion(response.data.title, getWikiLang(), 'original', response.data.contentMarkdown);
       // Load available languages in the background
@@ -301,57 +361,134 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   async function translate(targetLang: string) {
     if (!article.value) return;
+    abortSimplifyStream();
     const sourceLang = articleLang.value;
+    const sourceTitle = article.value.title;
+    translateSourceLang.value = sourceLang;
     articleLang.value = targetLang;
     const variant = activeVariant.value;
     // Check cache for the target version
-    const cached = getVersion(article.value.title, targetLang, variant);
+    const cached = getVersion(sourceTitle, targetLang, variant);
     if (cached) {
       simplifiedContent.value = cached;
       simplifySourceText.value = '';
+      translateSourceLang.value = null;
       return;
     }
     // We need the original in the target language first
-    let translatedOriginal = getVersion(article.value.title, targetLang, 'original');
+    let translatedOriginal = getVersion(sourceTitle, targetLang, 'original');
     if (!translatedOriginal) {
-      translateLoading.value = true;
       try {
-        const response = await api.post<{ translated: string }>('/ai/translate', {
-          text: article.value.contentMarkdown,
+        translatedOriginal = await streamTranslatedContent({
+          sourceText: article.value.contentMarkdown,
           sourceLang,
           targetLang,
         });
-        translatedOriginal = response.data.translated;
-        setVersion(article.value.title, targetLang, 'original', translatedOriginal);
+        setVersion(sourceTitle, targetLang, 'original', translatedOriginal);
       } catch (err) {
+        if (isAbortError(err)) {
+          return;
+        }
         articleLang.value = sourceLang;
         console.error('Translate error:', err);
-        translateLoading.value = false;
+        simplifiedContent.value = '';
+        translateSourceLang.value = null;
         return;
-      } finally {
-        translateLoading.value = false;
       }
     }
     if (variant === 'original') {
       simplifiedContent.value = translatedOriginal;
       simplifySourceText.value = '';
+      translateSourceLang.value = null;
       return;
     }
     // Now simplify the translated original
     await streamSimplifiedContent({
       sourceText: translatedOriginal,
       variant,
-      cacheTitle: article.value.title,
+      cacheTitle: sourceTitle,
       cacheLang: targetLang,
       fallbackText: translatedOriginal,
     });
+    translateSourceLang.value = null;
+  }
+
+  async function streamTranslatedContent(options: {
+    sourceText: string;
+    sourceLang: string;
+    targetLang: string;
+  }): Promise<string> {
+    abortTranslateStream();
+    const controller = new AbortController();
+    translateAbortController = controller;
+    const runId = ++translateRunId;
+    let accumulated = '';
+    translateLoading.value = true;
+    simplifiedContent.value = '';
+
+    try {
+      const response = await fetch('/api/ai/translate/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: options.sourceText,
+          sourceLang: options.sourceLang,
+          targetLang: options.targetLang,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const details = await response.text().catch(() => '');
+        throw new Error(
+          `Translate stream failed: ${response.status}${details ? ` - ${details}` : ''}`,
+        );
+      }
+      if (!response.body) {
+        throw new Error('Translate stream did not return a readable body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        if (runId !== translateRunId) {
+          continue;
+        }
+        accumulated += chunk;
+        simplifiedContent.value = accumulated;
+      }
+
+      const remaining = decoder.decode();
+      if (remaining) {
+        if (runId !== translateRunId) {
+          return accumulated;
+        }
+        accumulated += remaining;
+        simplifiedContent.value = accumulated;
+      }
+
+      return accumulated;
+    } finally {
+      if (runId === translateRunId) {
+        translateLoading.value = false;
+        translateAbortController = null;
+      }
+    }
   }
 
   async function loadArticleInLanguage(targetLang: string) {
     if (!article.value) return;
     abortSimplifyStream();
+    abortTranslateStream();
+    translateLoading.value = false;
+    translateSourceLang.value = null;
     const langLink = articleLanguages.value.find((l) => l.lang === targetLang);
     if (!langLink) return;
+    const requestLang = langLink.wikiLang ?? targetLang;
     const previousLang = articleLang.value;
     articleLoading.value = true;
     articleError.value = '';
@@ -362,11 +499,17 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     try {
       const response = await api.get<Article>(
         `/wikipedia/article/${encodeURIComponent(langLink.title)}`,
-        { params: { lang: targetLang } },
+        { params: { lang: requestLang } },
       );
-      article.value = response.data;
+      article.value = {
+        ...response.data,
+        appendixSections: response.data.appendixSections ?? [],
+      };
+      if (!hasStoredTocOpen()) {
+        setTocOpen(true, false);
+      }
       setVersion(response.data.title, targetLang, 'original', response.data.contentMarkdown);
-      void loadArticleLanguages(response.data.title, targetLang);
+      void loadArticleLanguages(response.data.title, requestLang);
     } catch (err) {
       articleLang.value = previousLang;
       console.error('Article language load error:', err);
@@ -592,6 +735,8 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     applyGradeLevel,
     simplify,
     translate,
+    abortTranslateStream,
+    cancelTranslateByUser,
     sendMessage,
     abortSimplifyStream,
     cancelSimplifyByUser,

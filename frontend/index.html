@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title><%= productName %></title>
+    <title>wikiped-IA</title>
 
     <meta charset="utf-8">
     <meta name="description" content="<%= productDescription %>">
@@ -14,6 +14,13 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
     <link rel="icon" type="image/ico" href="favicon.ico">
+    <script>
+      (function () {
+        var hostname = window.location.hostname.toLowerCase().replace(/^www\./, '');
+        var title = hostname === 'ki-pedia.ch' || hostname === 'ki-pedia.org' ? 'ki-pedia' : 'wikiped-IA';
+        document.title = title;
+      })();
+    </script>
   </head>
   <body>
     <!-- quasar:entry-point -->

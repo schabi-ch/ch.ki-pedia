@@ -1,6 +1,7 @@
 <template>
   <q-list dense class="toc-list">
-    <q-item-label header class="text-weight-bold q-pb-sm row items-center justify-end toc-header">
+    <q-item-label header class="text-weight-bold q-pb-sm row no-wrap items-center justify-between toc-header">
+      <div>{{ $t('article.tocHeader') }}</div>
       <q-btn flat dense round icon="close" size="sm" @click="closeToc" />
     </q-item-label>
     <q-item v-for="(heading, index) in headings" :key="index" clickable dense class="toc-item"

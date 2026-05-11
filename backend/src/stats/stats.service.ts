@@ -126,9 +126,7 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
     try {
       ({ createPool } = await import('mysql2/promise'));
     } catch {
-      this.logger.warn(
-        'Stats logging disabled: mysql2 package not available',
-      );
+      this.logger.warn('Stats logging disabled: mysql2 package not available');
       return;
     }
 
@@ -292,9 +290,7 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
 
     this.pool = null;
     if (!this.connectionFailureLogged) {
-      this.logger.warn(
-        'Stats logging disabled: MySQL connection unavailable',
-      );
+      this.logger.warn('Stats logging disabled: MySQL connection unavailable');
       this.connectionFailureLogged = true;
     }
     return true;

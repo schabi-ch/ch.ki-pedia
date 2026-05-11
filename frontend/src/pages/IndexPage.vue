@@ -1,13 +1,24 @@
 <template>
   <q-page class="q-pa-md">
+
+    <q-banner class="preview-banner" rounded>
+      <template v-slot:avatar>
+        <q-icon name="construction" color="warning" />
+      </template>
+      <span class="preview-banner-text">
+        <strong>{{ $t('preview.label') }}</strong> {{ $t('preview.message') }}
+      </span>
+    </q-banner>
+
+
     <div class="hero-section" v-if="!store.searchQuery">
       <div class="col-12 col-md-8 text-center hero-content">
         <div class="hero-title text-primary q-mb-xs">
-          <template v-if="$i18n.locale === 'de'">
+          <template v-if="branding.isKiPediaBrand">
             <span style="color: #CED1EC;">wi</span>ki-pedia<span style="color: #CED1EC;">.</span>
           </template>
           <template v-else>
-            wikiped-IA<span style="color: #CED1EC;">.</span>
+            {{ branding.heroLogo }}<span style="color: #CED1EC;">.</span>
           </template>
         </div>
         <div class="hero-tagline q-mb-xl">
@@ -97,12 +108,14 @@
 import { defineComponent } from 'vue';
 import { useWikipediaStore } from 'stores/wikipedia';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
+import { resolveCurrentBranding } from 'src/utils/branding';
 
 export default defineComponent({
   name: 'IndexPage',
 
   setup () {
     const store = useWikipediaStore();
+    const branding = resolveCurrentBranding();
     const {
       suggestions,
       showSuggestions,
@@ -117,6 +130,7 @@ export default defineComponent({
     } = useSearchSuggestions();
 
     return {
+      branding,
       store,
       suggestions,
       showSuggestions,
@@ -177,6 +191,24 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+.preview-banner {
+  background: #fff3cd;
+  border-bottom: 2px solid #f0a500;
+  color: #7a4f00;
+  font-size: 0.85rem;
+  padding: 6px 16px;
+}
+
+.body--dark .preview-banner {
+  background: #3a2e00;
+  border-bottom-color: #f0a500;
+  color: #ffd966;
+}
+
+.preview-banner-text {
+  line-height: 1.4;
+}
+
 .hero-section {
   display: flex;
   justify-content: center;

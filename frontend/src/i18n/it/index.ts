@@ -98,7 +98,9 @@ export default {
     simplifyCancelledByUser: '... (Interrotto dall\'utente)',
     simplifiedDone: 'Il testo e stato ora riformulato.',
     translating: "Traduzione dell'articolo…",
-    tocTitle: 'Inhaltsverzeichnis anzeigen',
+    cancelTranslate: 'Interrompi la traduzione',
+    tocTitle: 'Mostra indice',
+    tocHeader: 'Indice',
     fontSize: {
       standard: 'Standard',
       large: 'Più grande',
@@ -113,6 +115,8 @@ export default {
     wordError: 'Esportazione in Word non riuscita',
     availableLanguagesLink1: '{count} lingua',
     availableLanguagesLinkN: '{count} lingue',
+    languagesSuggested: 'Lingue suggerite',
+    languagesWorldwide: 'In tutto il mondo',
     translateTo: 'Traduci in {lang}',
   },
   languages: {

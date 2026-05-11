@@ -197,6 +197,67 @@ export class AiController {
     );
   }
 
+  @Post('translate/stream')
+  async translateStream(
+    @Body() body: TranslateDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    this.validateTranslateBody(body);
+    void this.statsService.incrementTranslation();
+
+    const startedAt = Date.now();
+    let chunkCount = 0;
+    let writtenChars = 0;
+    const abortController = new AbortController();
+    const abortStream = () => {
+      if (!abortController.signal.aborted) {
+        abortController.abort();
+      }
+    };
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    req.on('close', () => {
+      abortStream();
+    });
+    req.on('aborted', abortStream);
+    res.on('close', abortStream);
+
+    try {
+      await this.aiService.translateStream(
+        body.text,
+        body.sourceLang,
+        body.targetLang,
+        (chunk) => {
+          chunkCount += 1;
+          writtenChars += chunk.length;
+          res.write(chunk);
+        },
+        abortController.signal,
+      );
+      res.end();
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      console.error('[ai:translate] stream failed', {
+        durationMs: Date.now() - startedAt,
+        chunkCount,
+        writtenChars,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      if (!res.writableEnded) {
+        res.destroy(error instanceof Error ? error : undefined);
+      }
+    }
+  }
+
   private validateSimplifyBody(body: SimplifyDto): SimplifyVariant {
     if (typeof body.text !== 'string' || !body.text.trim()) {
       throw new BadRequestException('Field "text" is required');

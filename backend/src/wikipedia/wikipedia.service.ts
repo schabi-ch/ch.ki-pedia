@@ -5,6 +5,11 @@ import {
 } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
+import {
+  matchAppendixHeading,
+  sortAppendixSections,
+  type AppendixKind,
+} from './appendix-sections';
 
 // Inlined from turndown-plugin-gfm (tables only)
 const _indexOf = Array.prototype.indexOf;
@@ -31,10 +36,7 @@ function _isFirstTbody(element: Element): boolean {
 }
 
 function _cell(content: string, node: Element): string {
-  const index = _indexOf.call(
-    (node.parentNode as Element).childNodes,
-    node,
-  );
+  const index = _indexOf.call((node.parentNode as Element).childNodes, node);
   const prefix = index === 0 ? '| ' : ' ';
   return prefix + content + ' |';
 }
@@ -42,8 +44,7 @@ function _cell(content: string, node: Element): string {
 function tables(turndownService: TurndownService): void {
   turndownService.keep(
     (node: Element) =>
-      node.nodeName === 'TABLE' &&
-      !(node as HTMLTableElement).rows[0] ||
+      (node.nodeName === 'TABLE' && !(node as HTMLTableElement).rows[0]) ||
       (node.nodeName === 'TABLE' &&
         !_isHeadingRow((node as HTMLTableElement).rows[0])),
   );
@@ -122,11 +123,18 @@ export interface WikiSearchResult {
   thumbnail: string | null;
 }
 
+export interface AppendixSection {
+  kind: AppendixKind;
+  title: string;
+  markdown: string;
+}
+
 export interface WikiArticle {
   title: string;
   contentMarkdown: string;
   contentHtml: string;
   infoboxHtml: string;
+  appendixSections: AppendixSection[];
   url: string;
 }
 
@@ -135,6 +143,14 @@ export interface WikiSuggestion {
   description: string;
   thumbnail: string | null;
   pageid: number;
+}
+
+export interface WikiArticleLanguageLink {
+  lang: string;
+  title: string;
+  wikiLang: string;
+  langName?: string;
+  autonym?: string;
 }
 
 interface WikiPrefixPage {
@@ -153,6 +169,10 @@ interface WikiPrefixResponse {
 
 @Injectable()
 export class WikipediaService {
+  private static readonly WIKIPEDIA_USER_AGENT =
+    process.env.WIKIPEDIA_USER_AGENT ??
+    'ch.ki-pedia/1.0 (https://github.com/schabi-ch/ch.ki-pedia)';
+
   private static readonly NON_ARTICLE_NAMESPACES = new Set([
     'category',
     'catégorie',
@@ -183,7 +203,6 @@ export class WikipediaService {
     'wikipedia',
   ]);
 
-  private readonly supportedLangs = ['en', 'de', 'fr', 'it', 'rm'];
   private readonly turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -204,18 +223,33 @@ export class WikipediaService {
     });
   }
 
+  private normalizeWikiLang(lang?: string): string {
+    const candidate = (lang ?? 'en').trim().toLowerCase();
+    return /^[a-z][a-z0-9-]{0,14}$/.test(candidate) ? candidate : 'en';
+  }
+
+  private extractWikiSubdomain(url: string): string | undefined {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      const match = hostname.match(/^([a-z0-9-]+)\.wikipedia\.org$/);
+      return match?.[1];
+    } catch {
+      return undefined;
+    }
+  }
+
   private getBaseUrl(lang: string): string {
-    const safeLang = this.supportedLangs.includes(lang) ? lang : 'en';
+    const safeLang = this.normalizeWikiLang(lang);
     return `https://${safeLang}.wikipedia.org/w/api.php`;
   }
 
   private getRestBaseUrl(lang: string): string {
-    const safeLang = this.supportedLangs.includes(lang) ? lang : 'en';
+    const safeLang = this.normalizeWikiLang(lang);
     return `https://${safeLang}.wikipedia.org/api/rest_v1`;
   }
 
   private toWikiOrigin(lang: string): string {
-    const safeLang = this.supportedLangs.includes(lang) ? lang : 'en';
+    const safeLang = this.normalizeWikiLang(lang);
     return `https://${safeLang}.wikipedia.org`;
   }
 
@@ -234,12 +268,26 @@ export class WikipediaService {
   private sanitizeWikipediaHtml(
     html: string,
     lang: string,
-  ): { html: string; title?: string; infoboxHtml: string } {
+  ): {
+    html: string;
+    title?: string;
+    infoboxHtml: string;
+    appendixHtml: Array<{ kind: AppendixKind; title: string; html: string }>;
+  } {
     const origin = this.toWikiOrigin(lang);
     const $ = cheerio.load(html);
 
     // Drop any scripts/styles just in case.
     $('script, style, link[rel="stylesheet"]').remove();
+
+    // Remove Parsoid metadata attributes that should never be user-visible.
+    $('*[about], *[typeof], *[data-mw], *[data-parsoid]').each((_, el) => {
+      const node = $(el);
+      node.removeAttr('about');
+      node.removeAttr('typeof');
+      node.removeAttr('data-mw');
+      node.removeAttr('data-parsoid');
+    });
 
     // Mark Begriffsklärungshinweis div to keep as raw HTML
     $('#Vorlage_Begriffsklärungshinweis').attr('data-keep-html', 'true');
@@ -269,14 +317,6 @@ export class WikipediaService {
 
       const wikiPrefix = `${origin}/wiki/`;
       const isWikiArticleLink = href.startsWith(wikiPrefix);
-
-      // Links inside <figure> always open as external Wikipedia links.
-      if ($(el).closest('figure').length > 0) {
-        $(el).attr('href', href);
-        $(el).attr('target', '_blank');
-        $(el).attr('rel', 'noopener noreferrer');
-        return;
-      }
 
       if (isWikiArticleLink) {
         const afterPrefix = href.slice(wikiPrefix.length);
@@ -342,6 +382,48 @@ export class WikipediaService {
     const infoboxHtml = infoboxEl.length ? $.html(infoboxEl) : '';
     infoboxEl.remove();
 
+    // Extract appendix sections (Literatur/Weblinks/Einzelnachweise etc.).
+    // They are removed from the main HTML so they neither appear in the
+    // rendered article body nor in the Markdown sent to LLM endpoints.
+    const appendixHtml: Array<{
+      kind: AppendixKind;
+      title: string;
+      html: string;
+    }> = [];
+    $('h2').each((_, h2) => {
+      const headingText = $(h2).text().trim();
+      if (!headingText) return;
+      const kind = matchAppendixHeading(headingText, lang);
+      if (!kind) return;
+
+      // Prefer the enclosing Parsoid <section data-mw-section-id> wrapper.
+      const parsoidSection = $(h2).closest('section[data-mw-section-id]');
+      if (parsoidSection.length) {
+        const sectionHtml = $.html(parsoidSection);
+        appendixHtml.push({ kind, title: headingText, html: sectionHtml });
+        parsoidSection.remove();
+        return;
+      }
+
+      // Fallback: collect the h2 itself plus all following siblings up to the
+      // next h2.
+      const collected: string[] = [];
+      collected.push($.html(h2));
+      let sibling = $(h2).next();
+      while (sibling.length && sibling[0].tagName !== 'h2') {
+        collected.push($.html(sibling));
+        const next = sibling.next();
+        sibling.remove();
+        sibling = next;
+      }
+      $(h2).remove();
+      appendixHtml.push({
+        kind,
+        title: headingText,
+        html: collected.join('\n'),
+      });
+    });
+
     // Pre-process tables for cleaner Markdown conversion.
     $('table').each((_, tableEl) => {
       // Move <caption> text above the table as a bold paragraph.
@@ -356,7 +438,7 @@ export class WikipediaService {
       }
       // Unwrap <figure> in table cells to a plain <img> so pipe tables stay clean.
       $(tableEl)
-        .find('td figure, th figure')
+        .find('td figure:not(:has(figcaption)), th figure:not(:has(figcaption))')
         .each((_, fig) => {
           const img = $(fig).find('img').first();
           if (img.length) {
@@ -374,7 +456,7 @@ export class WikipediaService {
     // Return body contents if present, otherwise the whole document.
     const body = $('body');
     const outHtml = body.length ? (body.html() ?? '') : $.html();
-    return { html: outHtml, title, infoboxHtml };
+    return { html: outHtml, title, infoboxHtml, appendixHtml };
   }
 
   private isNonArticleWikiTitle(title: string): boolean {
@@ -401,6 +483,37 @@ export class WikipediaService {
     return this.turndown.turndown(html);
   }
 
+  private async fetchWikipedia(
+    url: string,
+    init: RequestInit = {},
+    retries = 1,
+  ): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (!headers.has('user-agent')) {
+      headers.set('user-agent', WikipediaService.WIKIPEDIA_USER_AGENT);
+    }
+
+    const response = await fetch(url, {
+      ...init,
+      headers,
+    });
+
+    if ((response.status === 429 || response.status === 503) && retries > 0) {
+      const retryAfter = Number.parseInt(
+        response.headers.get('retry-after') ?? '',
+        10,
+      );
+      const delayMs =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, 2000)
+          : 250;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return this.fetchWikipedia(url, init, retries - 1);
+    }
+
+    return response;
+  }
+
   async search(query: string, lang = 'en'): Promise<WikiSearchResult[]> {
     const baseUrl = this.getBaseUrl(lang);
     const params = new URLSearchParams({
@@ -415,9 +528,12 @@ export class WikipediaService {
       origin: '*',
     });
 
-    const response = await fetch(`${baseUrl}?${params}`);
+    const response = await this.fetchWikipedia(`${baseUrl}?${params}`);
     if (!response.ok) {
-      throw new Error(`Wikipedia API error: ${response.status}`);
+      if (response.status === 429) {
+        return [];
+      }
+      throw new BadGatewayException(`Wikipedia API error: ${response.status}`);
     }
     const data = (await response.json()) as WikiGeneratorSearchResponse;
 
@@ -440,11 +556,11 @@ export class WikipediaService {
   }
 
   async getArticle(title: string, lang = 'en'): Promise<WikiArticle> {
-    const safeLang = this.supportedLangs.includes(lang) ? lang : 'en';
+    const safeLang = this.normalizeWikiLang(lang);
     const restBaseUrl = this.getRestBaseUrl(safeLang);
 
     // Structured HTML (Parsoid) including headings, links, tables, images.
-    const htmlRes = await fetch(
+    const htmlRes = await this.fetchWikipedia(
       `${restBaseUrl}/page/html/${encodeURIComponent(title)}`,
       {
         headers: {
@@ -466,8 +582,16 @@ export class WikipediaService {
       html: contentHtml,
       title: extractedTitle,
       infoboxHtml,
+      appendixHtml,
     } = this.sanitizeWikipediaHtml(rawHtml, safeLang);
     const contentMarkdown = this.convertHtmlToMarkdown(contentHtml);
+    const appendixSections = sortAppendixSections(
+      appendixHtml.map((s) => ({
+        kind: s.kind,
+        title: s.title,
+        markdown: this.convertHtmlToMarkdown(s.html).trim(),
+      })),
+    ).filter((s) => s.markdown.length > 0);
 
     const finalTitle = extractedTitle ?? title;
     return {
@@ -475,6 +599,7 @@ export class WikipediaService {
       contentMarkdown,
       contentHtml,
       infoboxHtml,
+      appendixSections,
       url: `https://${safeLang}.wikipedia.org/wiki/${encodeURIComponent(finalTitle)}`,
     };
   }
@@ -494,7 +619,7 @@ export class WikipediaService {
       origin: '*',
     });
 
-    const response = await fetch(`${baseUrl}?${params}`);
+    const response = await this.fetchWikipedia(`${baseUrl}?${params}`);
     if (!response.ok) {
       if (response.status === 429) {
         return [];
@@ -527,40 +652,94 @@ export class WikipediaService {
   async getLanguageLinks(
     title: string,
     lang = 'en',
-  ): Promise<{ lang: string; title: string }[]> {
-    const baseUrl = this.getBaseUrl(lang);
-    const params = new URLSearchParams({
-      action: 'query',
-      titles: title,
-      prop: 'langlinks',
-      lllimit: '500',
-      format: 'json',
-      origin: '*',
-    });
+  ): Promise<WikiArticleLanguageLink[]> {
+    const safeLang = this.normalizeWikiLang(lang);
+    const baseUrl = this.getBaseUrl(safeLang);
 
-    const response = await fetch(`${baseUrl}?${params}`);
-    if (!response.ok) {
-      throw new Error(`Wikipedia API error: ${response.status}`);
-    }
-    const data = (await response.json()) as {
-      query?: {
-        pages?: Record<string, { langlinks?: { lang: string; '*': string }[] }>;
-      };
+    const decodeTitleSafely = (value: string): string => {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
     };
 
-    const pages = data.query?.pages;
-    if (!pages) return [];
+    const normalizedInput = decodeTitleSafely(title).replace(/_/g, ' ').trim();
+    const titleCandidates = Array.from(
+      new Set([title, normalizedInput, normalizedInput.normalize('NFC')]),
+    ).filter((candidate) => candidate.length > 0);
 
-    const page = Object.values(pages)[0];
-    const links = page?.langlinks ?? [];
+    for (const candidate of titleCandidates) {
+      const params = new URLSearchParams({
+        action: 'query',
+        titles: candidate,
+        prop: 'langlinks',
+        lllimit: '500',
+        format: 'json',
+        origin: '*',
+      });
 
-    // Include the source language itself
-    const result: { lang: string; title: string }[] = [{ lang, title }];
+      try {
+        const response = await this.fetchWikipedia(`${baseUrl}?${params}`);
+        if (!response.ok) {
+          continue;
+        }
 
-    for (const link of links) {
-      result.push({ lang: link.lang, title: link['*'] });
+        const data = (await response.json()) as {
+          query?: {
+            pages?: Record<
+              string,
+              {
+                langlinks?: {
+                  lang: string;
+                  url?: string;
+                  langname?: string;
+                  autonym?: string;
+                  '*': string;
+                }[];
+              }
+            >;
+          };
+        };
+
+        const pages = data.query?.pages;
+        if (!pages) {
+          continue;
+        }
+
+        const page = Object.values(pages)[0];
+        const links = page?.langlinks ?? [];
+
+        const result: WikiArticleLanguageLink[] = [
+          {
+            lang: safeLang,
+            title: candidate,
+            wikiLang: safeLang,
+          },
+        ];
+
+        for (const link of links) {
+          result.push({
+            lang: link.lang,
+            title: link['*'],
+            wikiLang: this.extractWikiSubdomain(link.url ?? '') ?? link.lang,
+            langName: link.langname,
+            autonym: link.autonym,
+          });
+        }
+
+        return result;
+      } catch {
+        // Try the next title candidate.
+      }
     }
 
-    return result;
+    return [
+      {
+        lang: safeLang,
+        title: normalizedInput || title,
+        wikiLang: safeLang,
+      },
+    ];
   }
 }

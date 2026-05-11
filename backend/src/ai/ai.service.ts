@@ -47,15 +47,60 @@ export class AiService {
       level3: string;
     }
   > = {
-    1: { age: '6-7', level1: 'max. 10 words', level2: 'approximately 20 words', level3: 'approximately 30 words' },
-    2: { age: '7-8', level1: 'max. 50 words', level2: 'approximately 100-150 words', level3: 'approximately 180-250 words' },
-    3: { age: '8-9', level1: 'max. 70 words', level2: 'approximately 140-200 words', level3: 'approximately 250-350 words' },
-    4: { age: '9-10', level1: 'max. 90 words', level2: 'approximately 180-250 words', level3: 'approximately 350-450 words' },
-    5: { age: '10-11', level1: 'max. 100 words', level2: 'approximately 200-300 words', level3: 'approximately 400-500 words' },
-    6: { age: '11-12', level1: 'max. 120 words', level2: 'approximately 250-350 words', level3: 'approximately 500-600 words' },
-    7: { age: '12-13', level1: 'max. 140 words', level2: 'approximately 300-400 words', level3: 'approximately 600-700 words' },
-    8: { age: '13-14', level1: 'max. 160 words', level2: 'approximately 350-450 words', level3: 'approximately 700-850 words' },
-    9: { age: '14-15', level1: 'max. 180 words', level2: 'approximately 400-550 words', level3: 'approximately 850-1000 words' },
+    1: {
+      age: '6-7',
+      level1: 'max. 10 words',
+      level2: 'approximately 20 words',
+      level3: 'approximately 30 words',
+    },
+    2: {
+      age: '7-8',
+      level1: 'max. 50 words',
+      level2: 'approximately 100-150 words',
+      level3: 'approximately 180-250 words',
+    },
+    3: {
+      age: '8-9',
+      level1: 'max. 70 words',
+      level2: 'approximately 140-200 words',
+      level3: 'approximately 250-350 words',
+    },
+    4: {
+      age: '9-10',
+      level1: 'max. 90 words',
+      level2: 'approximately 180-250 words',
+      level3: 'approximately 350-450 words',
+    },
+    5: {
+      age: '10-11',
+      level1: 'max. 100 words',
+      level2: 'approximately 200-300 words',
+      level3: 'approximately 400-500 words',
+    },
+    6: {
+      age: '11-12',
+      level1: 'max. 120 words',
+      level2: 'approximately 250-350 words',
+      level3: 'approximately 500-600 words',
+    },
+    7: {
+      age: '12-13',
+      level1: 'max. 140 words',
+      level2: 'approximately 300-400 words',
+      level3: 'approximately 600-700 words',
+    },
+    8: {
+      age: '13-14',
+      level1: 'max. 160 words',
+      level2: 'approximately 350-450 words',
+      level3: 'approximately 700-850 words',
+    },
+    9: {
+      age: '14-15',
+      level1: 'max. 180 words',
+      level2: 'approximately 400-550 words',
+      level3: 'approximately 850-1000 words',
+    },
   };
 
   async simplify(
@@ -171,19 +216,74 @@ export class AiService {
   ): Promise<{ translated: string }> {
     const provider = this.getActiveProvider();
     if (!provider.isConfigured()) {
+      throw new Error(`AI translation is not configured. Please set ${provider.apiKeyEnvVar}.`);
+    }
+
+    if (sourceLang === targetLang) {
       return { translated: text };
     }
 
-    const targetName = AiService.LANG_NAMES[targetLang] ?? targetLang;
-    const sourceName = AiService.LANG_NAMES[sourceLang] ?? sourceLang;
-
-    const systemPrompt = `You are an academic translator. Translate the user's Markdown text from ${sourceName} to ${targetName}. Preserve ALL Markdown formatting exactly: headings (#, ##, ###), links, images (![alt](url)), bold, italic, lists, and code blocks. Only translate the human-readable text. Return ONLY the translated Markdown without any preamble.`;
+    const systemPrompt = this.buildTranslateSystemPrompt(sourceLang, targetLang);
 
     const translated = await provider.completeText({
       prompt: text,
       systemPrompt,
+      maxTokens: this.getSimplifyMaxTokens(),
     });
     return { translated };
+  }
+
+  async translateStream(
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+    onChunk: (chunk: string) => void | Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<{ translated: string }> {
+    const provider = this.getActiveProvider();
+    if (!provider.isConfigured()) {
+      throw new Error(`AI translation is not configured. Please set ${provider.apiKeyEnvVar}.`);
+    }
+
+    if (sourceLang === targetLang) {
+      await onChunk(text);
+      return { translated: text };
+    }
+
+    const outputChunks: string[] = [];
+    await provider.completeTextStream({
+      prompt: text,
+      systemPrompt: this.buildTranslateSystemPrompt(sourceLang, targetLang),
+      maxTokens: this.getSimplifyMaxTokens(),
+      signal,
+      async onChunk(chunk) {
+        outputChunks.push(chunk);
+        await onChunk(chunk);
+      },
+    });
+
+    return { translated: outputChunks.join('').trim() };
+  }
+
+  private buildTranslateSystemPrompt(
+    sourceLang: string,
+    targetLang: string,
+  ): string {
+    const targetName = AiService.LANG_NAMES[targetLang] ?? targetLang;
+    const sourceName = AiService.LANG_NAMES[sourceLang] ?? sourceLang;
+
+    return `You are an expert Wikipedia translator. Translate the FULL Markdown article from ${sourceName} to ${targetName}.
+
+Output rules:
+- Preserve the original Markdown and HTML structure as closely as possible.
+- Keep all heading levels exactly (#, ##, ###, ...). Translate heading text only.
+- Keep section order exactly as in the input.
+- Keep lists, blockquotes, tables, links, and emphasis markers in place.
+- Keep all URLs unchanged.
+- Keep Markdown image/link syntax and all HTML tags/attributes unchanged.
+- Keep <figure>, <figcaption>, and infobox-like HTML blocks in place; translate visible human text inside them.
+- Do not remove sections, do not summarize, and do not add explanations.
+- Return ONLY translated Markdown, no preamble, no code fences.`;
   }
 
   private getActiveProvider(): AiProvider {

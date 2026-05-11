@@ -98,7 +98,9 @@ export default {
     simplifyCancelledByUser: '... (Abbruch durch den Benutzer)',
     simplifiedDone: 'Der Text wurde jetzt umgeschrieben.',
     translating: 'Artikel wird übersetzt…',
+    cancelTranslate: 'Übersetzung abbrechen',
     tocTitle: 'Inhaltsverzeichnis anzeigen',
+    tocHeader: 'Inhaltsverzeichnis',
     fontSize: {
       standard: 'Standard',
       large: 'Grösser',
@@ -113,6 +115,8 @@ export default {
     wordError: 'Word-Export fehlgeschlagen',
     availableLanguagesLink1: '{count} Sprache',
     availableLanguagesLinkN: '{count} Sprachen',
+    languagesSuggested: 'Vorgeschlagene Sprachen',
+    languagesWorldwide: 'Weltweit',
     translateTo: 'Auf {lang} übersetzen',
   },
   languages: {

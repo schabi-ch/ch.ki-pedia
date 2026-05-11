@@ -98,7 +98,9 @@ export default {
     simplifyCancelledByUser: '... (Interruption par l\'utilisateur)',
     simplifiedDone: 'Le texte a maintenant ete reformule.',
     translating: "Traduction de l'article…",
-    tocTitle: 'Inhaltsverzeichnis anzeigen',
+    cancelTranslate: 'Arrêter la traduction',
+    tocTitle: 'Afficher la table des matières',
+    tocHeader: 'Table des matières',
     fontSize: {
       standard: 'Standard',
       large: 'Plus grand',
@@ -113,6 +115,8 @@ export default {
     wordError: 'Échec de l’export Word',
     availableLanguagesLink1: '{count} langue',
     availableLanguagesLinkN: '{count} langues',
+    languagesSuggested: 'Langues suggérées',
+    languagesWorldwide: 'Monde entier',
     translateTo: 'Traduire en {lang}',
   },
   languages: {

@@ -188,10 +188,7 @@ export class GeminiProvider implements AiProvider {
     );
   }
 
-  private async createGenAI(
-    projectId: string,
-    location: string,
-  ): Promise<any> {
+  private async createGenAI(projectId: string, location: string): Promise<any> {
     const { GoogleGenAI } = await import('@google/genai');
     return new GoogleGenAI({
       vertexai: true,
