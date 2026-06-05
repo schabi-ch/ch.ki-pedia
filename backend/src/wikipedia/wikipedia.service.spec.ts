@@ -1,18 +1,29 @@
 /// <reference types="jest" />
 
+import {
+  BadGatewayException,
+  GatewayTimeoutException,
+  Logger,
+} from '@nestjs/common';
 import { WikipediaService } from './wikipedia.service';
 
 describe('WikipediaService', () => {
   let originalFetch: typeof global.fetch;
   let fetchMock: jest.MockedFunction<typeof fetch>;
+  let loggerErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     originalFetch = global.fetch;
     fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
     global.fetch = fetchMock;
+    loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    jest.useRealTimers();
+    loggerErrorSpy.mockRestore();
     global.fetch = originalFetch;
     jest.clearAllMocks();
   });
@@ -81,6 +92,40 @@ describe('WikipediaService', () => {
       'https://upload.wikimedia.org/lion.jpg',
     );
     expect(article.contentMarkdown).toContain('[Tiger](/article/Tiger)');
+  });
+
+  it('removes Wikipedia non-reading maintenance boxes before Markdown conversion', async () => {
+    fetchMock.mockResolvedValue(
+      createHtmlResponse(`
+        <html>
+          <body>
+            <h1 id="firstHeading">Lausanne</h1>
+            <table class="infobox metadata">
+              <tbody><tr><td>Infobox content</td></tr></tbody>
+            </table>
+            <div class="bandeau-container">Bandeau de maintenance</div>
+            <table class="ambox"><tbody><tr><td>Article maintenance warning</td></tr></tbody></table>
+            <div class="noprint">Contribution tools</div>
+            <div class="metadata">Machine-readable metadata</div>
+            <p>Lausanne ist eine Stadt am Genfersee.</p>
+          </body>
+        </html>
+      `),
+    );
+    const service = new WikipediaService();
+
+    const article = await service.getArticle('Lausanne', 'de');
+
+    expect(article.contentMarkdown).toContain('Lausanne ist eine Stadt');
+    expect(article.contentMarkdown).not.toContain('Bandeau de maintenance');
+    expect(article.contentMarkdown).not.toContain(
+      'Article maintenance warning',
+    );
+    expect(article.contentMarkdown).not.toContain('Contribution tools');
+    expect(article.contentMarkdown).not.toContain('Machine-readable metadata');
+    expect(article.contentHtml).not.toContain('bandeau-container');
+    expect(article.contentHtml).not.toContain('class="ambox"');
+    expect(article.infoboxHtml).toContain('Infobox content');
   });
 
   it('extracts German appendix sections (Literatur/Weblinks/Einzelnachweise)', async () => {
@@ -224,7 +269,9 @@ describe('WikipediaService', () => {
     expect(article.contentMarkdown).not.toContain('mw:ExpandedAttrs');
     expect(article.contentMarkdown).not.toContain('data-mw');
     expect(article.contentHtml).toContain('<span class="notheme"');
-    expect(article.contentHtml).toContain('style="position:relative; z-index:9; color:#202122;"');
+    expect(article.contentHtml).toContain(
+      'style="position:relative; z-index:9; color:#202122;"',
+    );
     expect(article.contentHtml).not.toContain('typeof="mw:ExpandedAttrs"');
     expect(article.contentHtml).not.toContain('data-mw=');
     expect(article.contentHtml).not.toContain('about="#mwt');
@@ -282,11 +329,53 @@ describe('WikipediaService', () => {
     expect(article.contentHtml).toContain('left:89.4%');
     expect(article.contentHtml).toContain('<span class="notheme"');
     expect(article.contentHtml).toContain('Krems');
-    expect(article.contentHtml).toContain('https://upload.wikimedia.org/map.png');
+    expect(article.contentHtml).toContain(
+      'https://upload.wikimedia.org/map.png',
+    );
     expect(article.contentMarkdown).toContain('Fließtext unter der Karte.');
     expect(article.contentHtml).not.toContain('typeof="mw:ExpandedAttrs"');
     expect(article.contentHtml).not.toContain('data-mw=');
     expect(article.contentHtml).not.toContain('about="#mwt');
+  });
+
+  it('uses langlink URLs to resolve Wikipedia subdomains for language variants', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () =>
+        Promise.resolve({
+          query: {
+            pages: {
+              '1': {
+                langlinks: [
+                  {
+                    lang: 'gsw',
+                    url: 'https://als.wikipedia.org/wiki/Napol%C3%A9on_Bonaparte',
+                    langname: 'Schweizerdeutsch',
+                    autonym: 'Alemannisch',
+                    '*': 'Napoléon Bonaparte',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+    } as Response);
+    const service = new WikipediaService();
+
+    const links = await service.getLanguageLinks('Napoleon Bonaparte', 'de');
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      'llprop=url%7Clangname%7Cautonym',
+    );
+    expect(links).toContainEqual({
+      lang: 'gsw',
+      title: 'Napoléon Bonaparte',
+      wikiLang: 'als',
+      langName: 'Schweizerdeutsch',
+      autonym: 'Alemannisch',
+    });
   });
 
   it('returns an empty search result on Wikipedia rate limit (429)', async () => {
@@ -341,6 +430,107 @@ describe('WikipediaService', () => {
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
+  });
+
+  it('maps search network errors to BadGatewayException and logs context', async () => {
+    fetchMock.mockRejectedValue(new TypeError('socket hang up'));
+
+    const service = new WikipediaService();
+
+    await expect(service.search('Napoleon', 'de')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(loggerErrorSpy).toHaveBeenCalled();
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      'Wikipedia request failed',
+    );
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      '"operation":"search"',
+    );
+  });
+
+  it('maps search JSON parsing failures to BadGatewayException and logs context', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+    } as Response);
+
+    const service = new WikipediaService();
+
+    await expect(service.search('Napoleon', 'de')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(loggerErrorSpy).toHaveBeenCalled();
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      'Wikipedia API returned invalid JSON',
+    );
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      '"query":"Napoleon"',
+    );
+  });
+
+  it('logs unsuccessful search responses before returning BadGatewayException', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+    } as Response);
+
+    const service = new WikipediaService();
+
+    await expect(service.search('Napoleon', 'de')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(loggerErrorSpy).toHaveBeenCalled();
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain('"status":500');
+  });
+
+  it('maps timed out search requests to GatewayTimeoutException and logs context', async () => {
+    jest.useFakeTimers();
+    fetchMock.mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        }),
+    );
+
+    const service = new WikipediaService();
+    const promise = service.search('Napoleon', 'de');
+    const assertion = expect(promise).rejects.toBeInstanceOf(
+      GatewayTimeoutException,
+    );
+
+    await jest.advanceTimersByTimeAsync(10000);
+    await assertion;
+    expect(loggerErrorSpy).toHaveBeenCalled();
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      'Wikipedia request timed out',
+    );
+  });
+
+  it('maps prefix search JSON parsing failures to BadGatewayException and logs context', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () => Promise.reject(new SyntaxError('Unexpected end of JSON')),
+    } as Response);
+
+    const service = new WikipediaService();
+
+    await expect(service.prefixSearch('Napoleon', 'de')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(loggerErrorSpy).toHaveBeenCalled();
+    expect(String(loggerErrorSpy.mock.calls[0]?.[0])).toContain(
+      '"operation":"prefixSearch"',
+    );
   });
 
   function createHtmlResponse(html: string): Response {

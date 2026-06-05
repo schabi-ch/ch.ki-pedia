@@ -8,13 +8,31 @@ export default {
   header: {
     languageTooltip: 'Scegli la lingua',
     fontSizeTooltip: 'Modifica la dimensione del testo',
+    fontTooltip: 'Modifica il carattere',
     darkModeTooltip: 'Attiva la modalita scura',
     lightModeTooltip: 'Attiva la modalita chiara',
   },
   footer: {
-    about: 'Informazioni su questo sito',
     imprint: 'Note legali',
     privacy: 'Protezione dei dati',
+  },
+  homeButtons: {
+    whatIs: 'Che cos’è {brandName}?',
+    inClass: '{brandName} in classe',
+  },
+  education: {
+    title: '{brandName} in classe',
+    lead:
+      '{brandName} aiuta docenti e studenti a usare i contenuti di Wikipedia in classe in modo chiaro e basato sulle fonti.',
+    forTeachersTitle: 'Per i docenti',
+    forTeachersBody:
+      'Con {brandName} puoi adattare articoli Wikipedia complessi al livello di lettura adatto e usarli per attività didattiche.',
+    inClassTitle: 'Uso in classe',
+    inClassBody:
+      'Gli studenti possono leggere, semplificare e porre domande direttamente sui contenuti degli articoli, mantenendo il riferimento alla fonte originale.',
+    learningGoalsTitle: 'Obiettivi di apprendimento',
+    learningGoalsBody:
+      'Lavorare con Wikipedia rafforza l’educazione ai media, la comprensione del testo e il pensiero critico verso risposte generate dall’IA.',
   },
   imprint: {
     eyebrow: 'Informazioni legali',
@@ -48,6 +66,8 @@ export default {
     readingLevel: 'Semplificare il testo',
     readingLevelLabel: 'Livello di lettura',
     articleLangLabel: "Lingua dell'articolo",
+    languageSubtitle: 'Lingua dell’articolo: {lang}',
+    translatedSubtitle: 'Tradotto da {sourceLang} a {targetLang}',
     cefrLevel: 'QCER',
     schoolGrade: 'Classe',
     simplify: {
@@ -85,6 +105,27 @@ export default {
     grade: {
       levelLabel: '{grade}. classe',
     },
+    section: {
+      copy: 'Copia sezione',
+      copySuccess: 'Sezione copiata negli appunti',
+      copyError: 'Impossibile copiare la sezione',
+    },
+    quiz: {
+      action: 'Quiz',
+      title: 'Quiz',
+      progress: 'Domanda {current} di {total}',
+      checkAnswer: 'Controlla risposta',
+      nextQuestion: 'Domanda successiva',
+      showResult: 'Mostra risultato',
+      correct: 'Corretto',
+      incorrect: 'Non ancora corretto',
+      resultTitle: 'Il tuo risultato',
+      stars: '{score} stelle su {total}',
+    },
+    glossary: {
+      action: 'Termini importanti',
+      title: 'Termini importanti',
+    },
     levels: {
       original: 'Originale',
       high: 'Alta',
@@ -106,6 +147,15 @@ export default {
       large: 'Più grande',
       xLarge: 'Ancora più grande',
     },
+    fontFamily: {
+      standard: 'Standard',
+      luciole: 'Luciole',
+      openDyslexic: 'Open Dyslexic',
+    },
+    fontMenu: {
+      size: 'Dimensione del testo',
+      family: 'Carattere',
+    },
     error: "Impossibile caricare l'articolo.",
     print: 'Stampare',
     copyToClipboard: 'Copia negli appunti',
@@ -115,9 +165,24 @@ export default {
     wordError: 'Esportazione in Word non riuscita',
     availableLanguagesLink1: '{count} lingua',
     availableLanguagesLinkN: '{count} lingue',
+    languageDialogTitle: 'Altre lingue di Wikipedia',
+    languageDialogIntro:
+      'Wikipedia esiste in moltissime lingue. Ogni versione linguistica viene scritta in modo indipendente, quindi lo stesso tema può essere descritto con dettagli, priorità o punti di vista diversi.',
+    languageDialogExample:
+      'Per esempio, un articolo su un comune svizzero può contenere molti dettagli locali nella Wikipedia in tedesco, mentre la versione inglese può spiegare prima con più chiarezza dove si trova quel luogo.',
+    languageDialogListIntro: 'Guarda l’articolo su {title} in un’altra Wikipedia.',
     languagesSuggested: 'Lingue suggerite',
     languagesWorldwide: 'In tutto il mondo',
+    languageNoticeTitle: 'Lingua di visualizzazione cambiata',
+    languageNoticeDisplayLanguage: 'La lingua di visualizzazione del sito è stata cambiata in {lang}.',
+    languageNoticeArticleLanguage:
+      'L’articolo di Wikipedia resta però visualizzato in {lang} e proviene ancora dalla Wikipedia in quella lingua.',
+    languageNoticeSearchAgain:
+      'Wikipedia esiste in molte lingue diverse. Cerca di nuovo l’articolo, così l’articolo viene caricato dalla Wikipedia della lingua attuale.',
+    languageNoticeOk: 'Capito',
+    languageNoticeSearchButton: 'Cerca di nuovo',
     translateTo: 'Traduci in {lang}',
+    close: 'Chiudi',
   },
   languages: {
     de: 'Tedesco',
@@ -193,6 +258,12 @@ export default {
     placeholder: 'Fai una domanda su questo articolo…',
     send: 'Invia',
     stop: 'Interrompi la risposta',
+    clearHistory: 'Cancella la cronologia della chat',
+    copyAnswer: 'Copia negli appunti',
+    copySuccess: 'Risposta copiata negli appunti',
+    copyError: 'Copia negli appunti non riuscita',
+    expand: 'Ingrandisci la finestra chat',
+    collapse: 'Riduci la finestra chat',
     you: 'Tu',
     assistant: 'ki-pedia',
   },

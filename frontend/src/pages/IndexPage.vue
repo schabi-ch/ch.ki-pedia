@@ -10,6 +10,13 @@
       </span>
     </q-banner>
 
+    <div class="row justify-center items-center q-gutter-md q-my-lg">
+      <q-btn color="primary" :label="$t('homeButtons.whatIs', { brandName })" to="/about" rounded unelevated
+        class="search-btn" no-caps />
+      <q-btn color="primary" :label="$t('homeButtons.inClass', { brandName })" to="/education" rounded unelevated
+        class="search-btn" no-caps />
+    </div>
+
 
     <div class="hero-section" v-if="!store.searchQuery">
       <div class="col-12 col-md-8 text-center hero-content">
@@ -21,6 +28,7 @@
             {{ branding.heroLogo }}<span style="color: #CED1EC;">.</span>
           </template>
         </div>
+
         <div class="hero-tagline q-mb-xl">
           {{ $t('app.tagline') }}
         </div>
@@ -116,6 +124,7 @@ export default defineComponent({
   setup () {
     const store = useWikipediaStore();
     const branding = resolveCurrentBranding();
+    const brandName = branding.isKiPediaBrand ? 'ki-pedia' : 'wikiped-ia';
     const {
       suggestions,
       showSuggestions,
@@ -131,6 +140,7 @@ export default defineComponent({
 
     return {
       branding,
+      brandName,
       store,
       suggestions,
       showSuggestions,
@@ -154,11 +164,18 @@ export default defineComponent({
   watch: {
     '$route.query.q': {
       immediate: true,
-      handler (q: string) {
-        if (q) {
-          this.searchInput = q;
-          void this.store.search(q);
+      handler (q: string | string[] | undefined) {
+        const query = Array.isArray(q) ? q[0] : q;
+
+        if (query) {
+          this.searchInput = query;
+          void this.store.search(query);
+          return;
         }
+
+        this.searchInput = '';
+        this.resetSuggestions();
+        this.store.clearSearch();
       },
     },
   },
@@ -271,7 +288,15 @@ export default defineComponent({
 .search-btn {
   height: 48px;
   padding: 0 24px;
-  font-weight: 500;
+  font-family: 'SpaceGrotesk', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.search-btn :deep(.q-btn__content) {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .suggestions-dropdown {

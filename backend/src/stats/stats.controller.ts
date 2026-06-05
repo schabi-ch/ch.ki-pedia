@@ -4,6 +4,8 @@ import { StatsService, type MonthlyStatsRow } from './stats.service';
 interface VisitDto {
   newSession?: boolean;
   newVisitor?: boolean;
+  siteHost?: string;
+  guiLang?: string;
 }
 
 @Controller('stats')
@@ -16,6 +18,8 @@ export class StatsController {
     await this.statsService.incrementVisit({
       newSession: body?.newSession === true,
       newVisitor: body?.newVisitor === true,
+      siteHost: typeof body?.siteHost === 'string' ? body.siteHost : undefined,
+      guiLang: typeof body?.guiLang === 'string' ? body.guiLang : undefined,
     });
   }
 

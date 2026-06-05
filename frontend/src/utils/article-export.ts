@@ -26,6 +26,24 @@ function escapeHtml (input: string): string {
     .replace(/'/g, '&#39;');
 }
 
+export async function copyTextToClipboard (plainText: string): Promise<void> {
+  const clipboard = navigator.clipboard as Clipboard | undefined;
+  if (clipboard?.writeText) {
+    await clipboard.writeText(plainText);
+    return;
+  }
+
+  const el = document.createElement('textarea');
+  el.value = plainText;
+  el.setAttribute('readonly', '');
+  el.style.position = 'absolute';
+  el.style.left = '-9999px';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+}
+
 export async function copyArticleToClipboard (title: string, markdownText: string): Promise<void> {
   const htmlText = buildArticleHtml(title, markdownText);
   const plainText = buildArticlePlainText(title, markdownText);
@@ -46,20 +64,7 @@ export async function copyArticleToClipboard (title: string, markdownText: strin
     return;
   }
 
-  if (clipboard?.writeText) {
-    await clipboard.writeText(plainText);
-    return;
-  }
-
-  const el = document.createElement('textarea');
-  el.value = plainText;
-  el.setAttribute('readonly', '');
-  el.style.position = 'absolute';
-  el.style.left = '-9999px';
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand('copy');
-  document.body.removeChild(el);
+  await copyTextToClipboard(plainText);
 }
 
 function sanitizeFileName (title: string): string {

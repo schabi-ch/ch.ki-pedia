@@ -8,13 +8,31 @@ export default {
   header: {
     languageTooltip: 'Choisir la langue',
     fontSizeTooltip: 'Modifier la taille du texte',
+    fontTooltip: 'Adapter la police',
     darkModeTooltip: 'Activer le mode sombre',
     lightModeTooltip: 'Activer le mode clair',
   },
   footer: {
-    about: 'À propos de ce site',
     imprint: 'Mentions légales',
     privacy: 'Protection des données',
+  },
+  homeButtons: {
+    whatIs: 'Qu’est-ce que {brandName} ?',
+    inClass: '{brandName} en classe',
+  },
+  education: {
+    title: '{brandName} en classe',
+    lead:
+      '{brandName} aide les enseignantes et enseignants ainsi que les élèves à utiliser les contenus de Wikipédia en classe de manière claire et fondée sur les sources.',
+    forTeachersTitle: 'Pour les enseignantes et enseignants',
+    forTeachersBody:
+      'Avec {brandName}, vous pouvez adapter des articles Wikipédia complexes au niveau de lecture visé et les utiliser pour des activités en classe.',
+    inClassTitle: 'Utilisation en classe',
+    inClassBody:
+      'Les élèves peuvent lire, simplifier et poser des questions directement sur le contenu des articles tout en gardant le lien avec la source originale.',
+    learningGoalsTitle: 'Objectifs pédagogiques',
+    learningGoalsBody:
+      'Le travail avec Wikipédia renforce l’éducation aux médias, la compréhension de texte et l’esprit critique face aux réponses générées par IA.',
   },
   imprint: {
     eyebrow: 'Informations légales',
@@ -48,6 +66,8 @@ export default {
     readingLevel: 'Simplifier le texte',
     readingLevelLabel: 'Niveau de lecture',
     articleLangLabel: "Langue de l'article",
+    languageSubtitle: 'Langue de l’article : {lang}',
+    translatedSubtitle: 'Traduit de {sourceLang} vers {targetLang}',
     cefrLevel: 'CECR',
     schoolGrade: 'Classe scolaire',
     simplify: {
@@ -85,6 +105,27 @@ export default {
     grade: {
       levelLabel: '{grade}e classe',
     },
+    section: {
+      copy: 'Copier la section',
+      copySuccess: 'Section copiée dans le presse-papiers',
+      copyError: 'Impossible de copier la section',
+    },
+    quiz: {
+      action: 'Quiz',
+      title: 'Quiz',
+      progress: 'Question {current} sur {total}',
+      checkAnswer: 'Vérifier la réponse',
+      nextQuestion: 'Question suivante',
+      showResult: 'Afficher le résultat',
+      correct: 'Correct',
+      incorrect: 'Pas encore correct',
+      resultTitle: 'Votre résultat',
+      stars: '{score} étoile(s) sur {total}',
+    },
+    glossary: {
+      action: 'Termes importants',
+      title: 'Termes importants',
+    },
     levels: {
       original: 'Original',
       high: 'Élevée',
@@ -96,7 +137,7 @@ export default {
     simplifying: 'Simplification du texte…',
     cancelSimplify: 'Arrêter la simplification',
     simplifyCancelledByUser: '... (Interruption par l\'utilisateur)',
-    simplifiedDone: 'Le texte a maintenant ete reformule.',
+    simplifiedDone: 'Le texte a maintenant été reformulé.',
     translating: "Traduction de l'article…",
     cancelTranslate: 'Arrêter la traduction',
     tocTitle: 'Afficher la table des matières',
@@ -105,6 +146,15 @@ export default {
       standard: 'Standard',
       large: 'Plus grand',
       xLarge: 'Encore plus grand',
+    },
+    fontFamily: {
+      standard: 'Standard',
+      luciole: 'Luciole',
+      openDyslexic: 'Open Dyslexic',
+    },
+    fontMenu: {
+      size: 'Taille du texte',
+      family: 'Police',
     },
     error: "Impossible de charger l'article.",
     print: 'Imprimer',
@@ -115,9 +165,24 @@ export default {
     wordError: 'Échec de l’export Word',
     availableLanguagesLink1: '{count} langue',
     availableLanguagesLinkN: '{count} langues',
+    languageDialogTitle: 'Autres langues de Wikipédia',
+    languageDialogIntro:
+      'Wikipédia existe dans de très nombreuses langues. Chaque version linguistique est rédigée de manière indépendante; un même sujet peut donc être présenté avec un autre niveau de détail, d’autres priorités ou un autre point de vue.',
+    languageDialogExample:
+      'Par exemple, un article sur une commune suisse peut contenir beaucoup de détails locaux dans la Wikipédia germanophone, tandis que la version anglaise explique d’abord plus clairement où se trouve ce lieu.',
+    languageDialogListIntro: 'Consultez l’article sur {title} dans une autre Wikipédia.',
     languagesSuggested: 'Langues suggérées',
     languagesWorldwide: 'Monde entier',
+    languageNoticeTitle: 'Langue d’affichage modifiée',
+    languageNoticeDisplayLanguage: 'La langue d’affichage du site a été changée en {lang}.',
+    languageNoticeArticleLanguage:
+      'L’article Wikipédia reste toutefois affiché en {lang} et provient toujours de Wikipédia dans cette langue.',
+    languageNoticeSearchAgain:
+      'Wikipédia existe dans de nombreuses langues. Recherchez maintenant l’article une nouvelle fois afin de charger l’article depuis la Wikipédia de la langue actuelle.',
+    languageNoticeOk: 'Compris',
+    languageNoticeSearchButton: 'Rechercher à nouveau',
     translateTo: 'Traduire en {lang}',
+    close: 'Fermer',
   },
   languages: {
     de: 'Allemand',
@@ -193,6 +258,12 @@ export default {
     placeholder: 'Posez une question sur cet article…',
     send: 'Envoyer',
     stop: 'Arrêter la réponse',
+    clearHistory: 'Effacer l’historique du chat',
+    copyAnswer: 'Copier dans le presse-papiers',
+    copySuccess: 'Réponse copiée dans le presse-papiers',
+    copyError: 'Échec de la copie dans le presse-papiers',
+    expand: 'Agrandir la fenêtre de discussion',
+    collapse: 'Réduire la fenêtre de discussion',
     you: 'Vous',
     assistant: 'ki-pedia',
   },

@@ -18,40 +18,15 @@
             <q-btn v-if="!store.tocOpen" :key="tocButtonLabel" flat dense icon="toc" :label="tocButtonLabel"
               @click="store.setTocOpen(true)" no-caps />
           </div>
-          <div class="article-title">{{ store.article.title }}</div>
+          <div class="article-title">{{ displayArticleTitle }}</div>
+          <div v-if="articleSubtitle" class="article-subtitle">{{ articleSubtitle }}</div>
           <div class="article-header-bar">
             <div class="article-header-meta">
               <span v-if="langCount > 0" class="text-caption text-grey-6 article-lang-info">
                 {{ $t('article.langLabelStart') }}
-                <a href="#" class="article-lang-link" @click.prevent>{{ langCountLabel
-                }}<q-menu anchor="bottom left" self="top left" class="lang-menu">
-                    <q-list dense style="min-width: 200px; max-height: 400px" class="scroll">
-                      <q-item-label v-if="articleLanguageGroups.suggested.length > 0" header class="text-grey-7">
-                        {{ $t('article.languagesSuggested') }}
-                      </q-item-label>
-                      <q-item v-for="opt in articleLanguageGroups.suggested" :key="`suggested:${opt.value}`" clickable
-                        v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
-                        <q-item-section>{{ opt.label }}</q-item-section>
-                        <q-item-section v-if="opt.value === store.articleLang" side>
-                          <q-icon name="check" size="xs" color="primary" />
-                        </q-item-section>
-                      </q-item>
-                      <q-separator
-                        v-if="articleLanguageGroups.suggested.length > 0 && articleLanguageGroups.worldwide.length > 0"
-                        spaced />
-                      <q-item-label v-if="articleLanguageGroups.worldwide.length > 0" header class="text-grey-7">
-                        {{ $t('article.languagesWorldwide') }}
-                      </q-item-label>
-                      <q-item v-for="opt in articleLanguageGroups.worldwide" :key="`worldwide:${opt.value}`" clickable
-                        v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
-                        <q-item-section>{{ opt.label }}</q-item-section>
-                        <q-item-section v-if="opt.value === store.articleLang" side>
-                          <q-icon name="check" size="xs" color="primary" />
-                        </q-item-section>
-                      </q-item>
-                    </q-list>
-                  </q-menu>
-                </a>
+                <button type="button" class="article-lang-link" @click="languageDialogOpen = true">
+                  {{ langCountLabel }}
+                </button>
                 {{ $t('article.langLabelEnd') }}
                 <q-btn v-if="showTranslateButton" color="primary" dense no-caps unelevated :label="translateActionLabel"
                   :icon="translateActionIcon" @click="onTranslateToUiLang" class="translate-btn q-ml-sm" />
@@ -65,6 +40,55 @@
             </div>
           </div>
         </div>
+
+        <q-dialog v-model="languageDialogOpen">
+          <q-card class="language-dialog-card">
+            <q-card-section class="language-dialog-header">
+              <div class="language-dialog-title">{{ $t('article.languageDialogTitle') }}</div>
+              <q-btn flat dense round icon="close" v-close-popup :aria-label="$t('article.close')" />
+            </q-card-section>
+
+            <div class="language-dialog-body">
+              <q-card-section class="language-dialog-copy">
+                <p>{{ $t('article.languageDialogIntro') }}</p>
+                <p>{{ $t('article.languageDialogExample') }}</p>
+                <p class="language-dialog-list-intro">
+                  {{ $t('article.languageDialogListIntro', { title: store.article.title }) }}
+                </p>
+              </q-card-section>
+
+              <q-separator />
+
+              <q-card-section class="language-dialog-list scroll">
+                <q-list dense class="language-dialog-options">
+                  <q-item-label v-if="articleLanguageGroups.suggested.length > 0" header class="text-grey-7">
+                    {{ $t('article.languagesSuggested') }}
+                  </q-item-label>
+                  <q-item v-for="opt in articleLanguageGroups.suggested" :key="`suggested:${opt.value}`" clickable
+                    v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
+                    <q-item-section>{{ opt.label }}</q-item-section>
+                    <q-item-section v-if="opt.value === store.articleLang" side>
+                      <q-icon name="check" size="xs" color="primary" />
+                    </q-item-section>
+                  </q-item>
+                  <q-separator
+                    v-if="articleLanguageGroups.suggested.length > 0 && articleLanguageGroups.worldwide.length > 0"
+                    spaced />
+                  <q-item-label v-if="articleLanguageGroups.worldwide.length > 0" header class="text-grey-7">
+                    {{ $t('article.languagesWorldwide') }}
+                  </q-item-label>
+                  <q-item v-for="opt in articleLanguageGroups.worldwide" :key="`worldwide:${opt.value}`" clickable
+                    v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
+                    <q-item-section>{{ opt.label }}</q-item-section>
+                    <q-item-section v-if="opt.value === store.articleLang" side>
+                      <q-icon name="check" size="xs" color="primary" />
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </q-card-section>
+            </div>
+          </q-card>
+        </q-dialog>
 
         <q-card flat class="article-card">
           <q-card-section class="article-card-inner">
@@ -116,14 +140,44 @@
             </div>
             <div class="article-content text-body1" ref="articleContentRef">
               <div v-if="showOriginalHtmlContent" class="article-html" v-html="store.article.contentHtml" />
-              <q-markdown v-else :src="store.displayedContent" class="article-markdown" />
+              <template v-else-if="showGradeSections">
+                <section v-for="section in gradeSections" :key="section.id" class="grade-section">
+                  <q-markdown :src="section.markdown" class="article-markdown" no-heading-anchor-links />
+
+                  <div v-if="sectionGlossaryTerms(section).length > 0" class="section-glossary">
+                    <div class="section-glossary-title">{{ $t('article.glossary.title') }}</div>
+                    <dl class="section-glossary-list">
+                      <div v-for="term in sectionGlossaryTerms(section)" :key="term.term" class="section-glossary-item">
+                        <dt>{{ term.term }}</dt>
+                        <dd>{{ term.explanation }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div class="section-footer">
+                    <q-btn flat dense no-caps icon="quiz" :label="$t('article.quiz.action')"
+                      :loading="sectionQuizLoading(section)" :disable="store.simplifyLoading" class="section-footer-btn"
+                      @click="onOpenSectionQuiz(section)">
+                    </q-btn>
+                    <q-btn flat dense no-caps icon="menu_book" :label="$t('article.glossary.action')"
+                      :loading="sectionGlossaryLoading(section)" :disable="store.simplifyLoading"
+                      class="section-footer-btn" @click="onLoadSectionGlossary(section)">
+                    </q-btn>
+                    <q-btn flat dense no-caps icon="content_copy" :label="$t('article.section.copy')"
+                      :loading="sectionCopyLoading === sectionKey(section)" :disable="store.simplifyLoading"
+                      class="section-footer-btn" @click="onCopySection(section)">
+                    </q-btn>
+                  </div>
+                </section>
+              </template>
+              <q-markdown v-else :src="store.displayedContent" class="article-markdown" no-heading-anchor-links />
             </div>
             <div v-if="showAppendix" class="article-appendix q-mt-lg">
               <q-expansion-item v-for="(section, idx) in store.article.appendixSections" :key="section.kind + ':' + idx"
                 :icon="appendixIcon(section.kind)" :label="section.title"
                 header-class="article-appendix-header text-weight-medium" expand-separator>
                 <div class="article-appendix-body q-pa-md">
-                  <q-markdown :src="section.markdown" class="article-markdown" />
+                  <q-markdown :src="section.markdown" class="article-markdown" no-heading-anchor-links />
                 </div>
               </q-expansion-item>
             </div>
@@ -142,7 +196,7 @@
               <div class="level-panel-subtitle">{{ $t('article.simplify.byGrade.subtitle') }}</div>
               <div class="level-panel-description">{{ $t('article.simplify.byGrade.description') }}</div>
               <div class="grade-button-grid">
-                <q-btn v-for="grade in 9" :key="grade"
+                <q-btn v-for="grade in [4, 5, 6, 7, 8, 9]" :key="grade"
                   :color="store.activeVariant === `grade:${grade}` ? 'primary' : 'primary'"
                   :outline="store.activeVariant !== `grade:${grade}`"
                   :unelevated="store.activeVariant === `grade:${grade}`" rounded dense no-caps size="sm"
@@ -178,6 +232,8 @@
             {{ $t('chat.title') }}
           </q-tooltip>
         </q-btn>
+        <section-quiz-dialog v-model="quizDialogOpen" :questions="activeQuizQuestions"
+          :section-title="activeQuizSectionTitle" />
         <floating-chat v-if="chatOpen" @close="chatOpen = false" />
       </div>
     </div>
@@ -191,8 +247,11 @@ import { useWikipediaStore, type CefrSliderLevel, type GradeLevel } from 'stores
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
+import SectionQuizDialog from 'components/SectionQuizDialog.vue';
 import { extractHeadings } from 'src/utils/article-headings';
 import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article-export';
+import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
+import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-sections';
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 
@@ -231,18 +290,25 @@ export default defineComponent({
 
   setup () {
     const store = useWikipediaStore();
-    const { t, locale } = useI18n();
+    const i18n = useI18n();
+    const { t, locale } = i18n;
     const $q = useQuasar();
     const chatOpen = ref(false);
     const infoboxOpen = ref(true);
     const levelSliderOpen = ref(false);
+    const languageDialogOpen = ref(false);
     const topCancelRef = ref<HTMLElement | null>(null);
     const articleContentRef = ref<HTMLElement | null>(null);
     const showBottomCancelButton = ref(false);
     const copyLoading = ref(false);
     const wordLoading = ref(false);
+    const sectionCopyLoading = ref('');
+    const quizDialogOpen = ref(false);
+    const activeQuizSectionKey = ref('');
+    const activeQuizSectionTitle = ref('');
     const hasInfobox = computed(() => !!store.article?.infoboxHtml);
-    const showInfobox = computed(() => hasInfobox.value && !store.activeVariant.startsWith('grade:'));
+    const showInfobox = computed(() => hasInfobox.value);
+    const shouldCollapseInfoboxForVariant = computed(() => store.activeVariant !== 'original');
     const showOriginalHtmlContent = computed(
       () => store.activeVariant === 'original' && !store.simplifiedContent && !!store.article?.contentHtml,
     );
@@ -252,6 +318,82 @@ export default defineComponent({
         !!store.article &&
         (store.article.appendixSections?.length ?? 0) > 0,
     );
+    const gradeSections = computed(() => {
+      if (!store.activeVariant.startsWith('grade:')) return [];
+      return splitGradeSections(store.displayedContent);
+    });
+    const showGradeSections = computed(() => gradeSections.value.length === 3);
+    const activeQuizQuestions = computed(() => {
+      if (!activeQuizSectionKey.value) return [];
+      return store.sectionQuizzes[activeQuizSectionKey.value]?.questions ?? [];
+    });
+    const displayArticleTitle = computed(() => {
+      const title = store.article?.title ?? '';
+      if (!title || store.activeVariant === 'original') return title;
+
+      if (store.activeVariant.startsWith('cefr:')) {
+        const level = store.activeVariant.slice('cefr:'.length).toUpperCase();
+        return `${title} (${level})`;
+      }
+
+      const grade = Number(store.activeVariant.slice('grade:'.length));
+      if (!Number.isFinite(grade)) return title;
+      return `${title} (${t('article.grade.levelLabel', { grade })})`;
+    });
+
+    const articleLanguageLabel = (code: string): string => {
+      const langKey = `languages.${code}`;
+      if (i18n.te(langKey)) {
+        return t(langKey);
+      }
+
+      const articleLanguage = store.articleLanguages.find((lang) => lang.lang === code);
+      if (articleLanguage?.langName) return articleLanguage.langName;
+      if (articleLanguage?.autonym) return articleLanguage.autonym;
+
+      const wikiLanguageLabel = getWikiLanguageLabel(code, locale.value);
+      if (wikiLanguageLabel) {
+        return wikiLanguageLabel;
+      }
+
+      const displayNames =
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames([locale.value], { type: 'language' })
+          : null;
+      const normalizedCode = code.replace(/_/g, '-');
+      try {
+        return (
+          displayNames?.of(normalizedCode) ??
+          displayNames?.of(normalizedCode.split('-')[0] ?? normalizedCode) ??
+          code
+        );
+      } catch {
+        return code;
+      }
+    };
+
+    const uiWikiLang = computed(() => {
+      const loc = locale.value;
+      return loc === 'en-US' ? 'en' : loc;
+    });
+
+    const articleSubtitle = computed(() => {
+      const translation = store.articleTranslation;
+      if (translation) {
+        return t('article.translatedSubtitle', {
+          sourceLang: articleLanguageLabel(translation.sourceLang),
+          targetLang: articleLanguageLabel(translation.targetLang),
+        });
+      }
+
+      if (store.articleLang === uiWikiLang.value) {
+        return '';
+      }
+
+      return t('article.languageSubtitle', {
+        lang: articleLanguageLabel(store.articleLang),
+      });
+    });
     function appendixIcon (kind: string): string {
       switch (kind) {
         case 'bibliography': return 'menu_book';
@@ -262,11 +404,6 @@ export default defineComponent({
         default: return 'article';
       }
     }
-
-    const uiWikiLang = computed(() => {
-      const loc = locale.value;
-      return loc === 'en-US' ? 'en' : loc;
-    });
 
     const langCount = computed(() => store.articleLanguages.length);
 
@@ -352,6 +489,16 @@ export default defineComponent({
       },
     );
 
+    watch(
+      shouldCollapseInfoboxForVariant,
+      (shouldCollapse) => {
+        if (shouldCollapse && hasInfobox.value) {
+          infoboxOpen.value = false;
+        }
+      },
+      { immediate: true },
+    );
+
     onMounted(() => {
       window.addEventListener('scroll', onViewportChange, { passive: true });
       window.addEventListener('resize', onViewportChange);
@@ -359,7 +506,7 @@ export default defineComponent({
     });
 
     watch(
-      () => store.article?.title,
+      () => displayArticleTitle.value,
       (title) => {
         document.title = title ? `${title} – ki-pedia` : 'ki-pedia';
       },
@@ -386,7 +533,7 @@ export default defineComponent({
       if (!article || !store.displayedContent) return;
       copyLoading.value = true;
       try {
-        await copyArticleToClipboard(article.title, store.displayedContent);
+        await copyArticleToClipboard(displayArticleTitle.value, store.displayedContent);
         $q.notify({ type: 'positive', message: t('article.copySuccess') });
       } catch (err) {
         console.error('Copy to clipboard failed', err);
@@ -401,7 +548,7 @@ export default defineComponent({
       if (!article || !store.displayedContent) return;
       wordLoading.value = true;
       try {
-        await downloadArticleAsWord(article.title, store.displayedContent);
+        await downloadArticleAsWord(displayArticleTitle.value, buildWordExportMarkdown());
       } catch (err) {
         console.error('Word export failed', err);
         $q.notify({ type: 'negative', message: t('article.wordError') });
@@ -410,10 +557,120 @@ export default defineComponent({
       }
     }
 
+    function sectionKey (section: GradeArticleSection): string {
+      return [
+        store.article?.title ?? '',
+        store.articleLang,
+        store.activeVariant,
+        section.id,
+      ].join(':');
+    }
+
+    function sectionClipboardTitle (section: GradeArticleSection): string {
+      return `${displayArticleTitle.value} - ${section.title}`;
+    }
+
+    function escapeMarkdownTableCell (value: string): string {
+      return String(value ?? '')
+        .replace(/\|/g, '\\|')
+        .replace(/\r?\n/g, '<br>')
+        .trim();
+    }
+
+    function buildSectionGlossaryTable (section: GradeArticleSection): string {
+      const terms = sectionGlossaryTerms(section);
+      if (terms.length === 0) return '';
+
+      const rows = terms
+        .map((term) => `| ${escapeMarkdownTableCell(term.term)} | ${escapeMarkdownTableCell(term.explanation)} |`)
+        .join('\n');
+
+      return `${t('article.glossary.title')}\n\n| Begriff | Erklärung |\n| --- | --- |\n${rows}`;
+    }
+
+    function buildSectionCopyMarkdown (section: GradeArticleSection): string {
+      const sectionWithoutHeader = section.bodyMarkdown || section.markdown;
+      const glossaryTable = buildSectionGlossaryTable(section);
+
+      if (!glossaryTable) return sectionWithoutHeader;
+      if (!sectionWithoutHeader) return glossaryTable;
+      return `${sectionWithoutHeader}\n\n${glossaryTable}`;
+    }
+
+    function buildWordExportMarkdown (): string {
+      if (!showGradeSections.value) {
+        return store.displayedContent;
+      }
+
+      return gradeSections.value
+        .map((section) => {
+          const glossaryTable = buildSectionGlossaryTable(section);
+          if (!glossaryTable) return section.markdown;
+          return `${section.markdown}\n\n${glossaryTable}`;
+        })
+        .join('\n\n');
+    }
+
+    async function onCopySection (section: GradeArticleSection) {
+      const key = sectionKey(section);
+      sectionCopyLoading.value = key;
+      try {
+        await copyArticleToClipboard(sectionClipboardTitle(section), buildSectionCopyMarkdown(section));
+        $q.notify({ type: 'positive', message: t('article.section.copySuccess') });
+      } catch (err) {
+        console.error('Copy section to clipboard failed', err);
+        $q.notify({ type: 'negative', message: t('article.section.copyError') });
+      } finally {
+        sectionCopyLoading.value = '';
+      }
+    }
+
+    async function onLoadSectionGlossary (section: GradeArticleSection) {
+      try {
+        await store.loadSectionGlossary({
+          sectionKey: sectionKey(section),
+          text: section.markdown,
+          sectionTitle: section.title,
+        });
+        void nextTick(updateCancelButtonsVisibility);
+      } catch (err) {
+        console.error('Load section glossary failed', err);
+      }
+    }
+
+    async function onOpenSectionQuiz (section: GradeArticleSection) {
+      const key = sectionKey(section);
+      activeQuizSectionKey.value = key;
+      activeQuizSectionTitle.value = section.title;
+      try {
+        await store.loadSectionQuiz({
+          sectionKey: key,
+          text: section.markdown,
+          sectionTitle: section.title,
+        });
+        quizDialogOpen.value = true;
+      } catch (err) {
+        console.error('Load section quiz failed', err);
+      }
+    }
+
+    function sectionGlossaryTerms (section: GradeArticleSection) {
+      return store.sectionGlossaries[sectionKey(section)]?.terms ?? [];
+    }
+
+    function sectionGlossaryLoading (section: GradeArticleSection): boolean {
+      return store.sectionGlossaries[sectionKey(section)]?.loading === true;
+    }
+
+    function sectionQuizLoading (section: GradeArticleSection): boolean {
+      return store.sectionQuizzes[sectionKey(section)]?.loading === true;
+    }
+
     return {
       store,
       chatOpen,
       infoboxOpen,
+      languageDialogOpen,
       topCancelRef,
       articleContentRef,
       showBottomCancelButton,
@@ -421,14 +678,29 @@ export default defineComponent({
       showInfobox,
       showOriginalHtmlContent,
       showAppendix,
+      displayArticleTitle,
+      articleSubtitle,
       appendixIcon,
       levelSliderOpen,
       closeLevelSlider,
       onCancelSimplify,
       copyLoading,
       wordLoading,
+      sectionCopyLoading,
+      quizDialogOpen,
+      activeQuizQuestions,
+      activeQuizSectionTitle,
       onCopyToClipboard,
       onSaveAsWord,
+      gradeSections,
+      showGradeSections,
+      sectionKey,
+      onCopySection,
+      onLoadSectionGlossary,
+      onOpenSectionQuiz,
+      sectionGlossaryTerms,
+      sectionGlossaryLoading,
+      sectionQuizLoading,
       tocButtonLabel,
       uiWikiLang,
       langCount,
@@ -444,6 +716,7 @@ export default defineComponent({
   components: {
     QMarkdown,
     FloatingChat,
+    SectionQuizDialog,
   },
 
   computed: {
@@ -455,9 +728,14 @@ export default defineComponent({
         typeof Intl.DisplayNames === 'function'
           ? new Intl.DisplayNames([locale], { type: 'language' })
           : null;
-      const labelFor = (code: string) => {
+      const labelFor = (code: string): string | undefined => {
         if (this.$te(key(code))) {
           return this.$t(key(code));
+        }
+
+        const wikiLanguageLabel = getWikiLanguageLabel(code, locale);
+        if (wikiLanguageLabel) {
+          return wikiLanguageLabel;
         }
 
         const normalizedCode = code.replace(/_/g, '-');
@@ -470,7 +748,7 @@ export default defineComponent({
           // Wikipedia language codes (e.g. "simple", "bat-smg") may not be valid BCP 47 tags
         }
 
-        return intlLabel ?? code;
+        return intlLabel;
       };
       if (langs.length === 0) {
         return [
@@ -482,7 +760,7 @@ export default defineComponent({
         ];
       }
       return langs.map((l) => ({
-        label: l.autonym || l.langName || labelFor(l.lang),
+        label: labelFor(l.lang) || l.langName || l.autonym || l.lang,
         value: l.lang,
       }));
     },
@@ -558,12 +836,13 @@ export default defineComponent({
     },
 
     onGradeButtonClick (grade: number) {
-      if (grade < 1 || grade > 9) return;
+      if (grade < 4 || grade > 9) return;
       void this.store.applyGradeLevel(grade as GradeLevel);
       this.levelSliderOpen = false;
     },
 
     onLanguageSelect (lang: string) {
+      this.languageDialogOpen = false;
       void this.store.loadArticleInLanguage(lang);
     },
 
@@ -597,6 +876,14 @@ export default defineComponent({
   letter-spacing: -0.02em;
 }
 
+.article-subtitle {
+  margin-top: 4px;
+  color: var(--kp-text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .article-header-bar {
   display: flex;
   align-items: center;
@@ -621,10 +908,83 @@ export default defineComponent({
 }
 
 .article-lang-link {
+  appearance: none;
+  background: transparent;
+  border: 0;
   color: var(--q-primary);
   text-decoration: underline;
   cursor: pointer;
   font-weight: 500;
+  font: inherit;
+  padding: 0;
+}
+
+.language-dialog-card {
+  width: min(640px, calc(100vw - 32px));
+  height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 32px);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.language-dialog-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 10px 24px;
+}
+
+.language-dialog-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--kp-text-primary);
+}
+
+.language-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.language-dialog-copy {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: calc(66.666% - 1px);
+  padding: 0 24px 18px;
+  color: var(--kp-text-secondary);
+  line-height: 1.55;
+  overflow-y: auto;
+}
+
+.language-dialog-copy p {
+  margin: 0 0 10px;
+}
+
+.language-dialog-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.language-dialog-list-intro {
+  color: var(--kp-text-primary);
+  font-weight: 600;
+}
+
+.language-dialog-list {
+  flex: 1 1 0;
+  min-height: 33.333%;
+  overflow-y: auto;
+  padding: 8px 8px 12px;
+}
+
+.language-dialog-options :deep(.q-item) {
+  border-radius: 8px;
 }
 
 .translate-btn {
@@ -724,6 +1084,10 @@ export default defineComponent({
   .article-actions {
     display: none !important;
   }
+
+  .section-footer {
+    display: none !important;
+  }
 }
 
 @media (max-width: 600px) {
@@ -738,6 +1102,67 @@ export default defineComponent({
 
 .article-markdown {
   display: contents;
+}
+
+.grade-section {
+  padding-bottom: 24px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid rgba(82, 40, 129, 0.08);
+}
+
+.grade-section:last-child {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.section-glossary {
+  margin: 18px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(82, 40, 129, 0.08);
+  border-radius: 8px;
+  background: rgba(82, 40, 129, 0.035);
+}
+
+.section-glossary-title {
+  font-weight: 700;
+  color: var(--kp-text-primary);
+  margin-bottom: 10px;
+}
+
+.section-glossary-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.section-glossary-item {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) 1fr;
+  gap: 8px 14px;
+}
+
+.section-glossary-item dt {
+  font-weight: 700;
+  color: var(--kp-text-primary);
+}
+
+.section-glossary-item dd {
+  margin: 0;
+  color: var(--kp-text-secondary);
+}
+
+.section-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  //border-top: 1px solid rgba(82, 40, 129, 0.08);
+}
+
+.section-footer-btn {
+  border-radius: 8px;
 }
 
 .simplify-cancel-bottom {
@@ -979,6 +1404,14 @@ export default defineComponent({
     bottom: 96px;
   }
 
+  .section-footer {
+    justify-content: flex-start;
+  }
+
+  .section-glossary-item {
+    grid-template-columns: 1fr;
+  }
+
   .level-panel {
     right: 90px;
     bottom: 96px;
@@ -1049,14 +1482,39 @@ export default defineComponent({
 
 .infobox-body {
   min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
+  overflow: auto;
+  text-align: left;
+  overflow-wrap: anywhere;
   padding: 12px 16px 16px;
 }
 
 .infobox-body :deep(table) {
   width: 100%;
+  min-width: 100%;
   max-width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
+  text-align: left;
+}
+
+.infobox-body :deep(th),
+.infobox-body :deep(td),
+.infobox-body :deep(p),
+.infobox-body :deep(div),
+.infobox-body :deep(span),
+.infobox-body :deep(li) {
+  max-width: 100%;
+  text-align: left !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.infobox-body :deep(th),
+.infobox-body :deep(td) {
+  min-width: 0;
+  vertical-align: top;
 }
 
 .infobox-body :deep(img) {

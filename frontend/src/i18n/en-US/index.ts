@@ -8,13 +8,31 @@ export default {
   header: {
     languageTooltip: 'Choose language',
     fontSizeTooltip: 'Change font size',
+    fontTooltip: 'Adjust font',
     darkModeTooltip: 'Enable dark mode',
     lightModeTooltip: 'Enable light mode',
   },
   footer: {
-    about: 'About this page',
     imprint: 'Imprint',
     privacy: 'Privacy policy',
+  },
+  homeButtons: {
+    whatIs: 'What is {brandName}?',
+    inClass: '{brandName} in the classroom',
+  },
+  education: {
+    title: '{brandName} in the classroom',
+    lead:
+      '{brandName} helps teachers and students use Wikipedia content in class in a clear, source-based way.',
+    forTeachersTitle: 'For teachers',
+    forTeachersBody:
+      'With {brandName}, you can adapt complex Wikipedia articles to suitable reading levels and use them for classroom tasks.',
+    inClassTitle: 'Use in class',
+    inClassBody:
+      'Students can read, simplify and ask questions directly about the article content while staying close to the original source.',
+    learningGoalsTitle: 'Learning goals',
+    learningGoalsBody:
+      'Working with Wikipedia supports media literacy, reading comprehension and critical thinking about AI-generated answers.',
   },
   imprint: {
     eyebrow: 'Legal',
@@ -48,6 +66,8 @@ export default {
     readingLevel: 'Simplify text',
     readingLevelLabel: 'Reading level',
     articleLangLabel: 'Article language',
+    languageSubtitle: 'Article language: {lang}',
+    translatedSubtitle: 'Translated from {sourceLang} to {targetLang}',
     cefrLevel: 'CEFR',
     schoolGrade: 'School grade',
     simplify: {
@@ -85,6 +105,27 @@ export default {
     grade: {
       levelLabel: 'Grade {grade}',
     },
+    section: {
+      copy: 'Copy section',
+      copySuccess: 'Section copied to clipboard',
+      copyError: 'Could not copy section',
+    },
+    quiz: {
+      action: 'Quiz',
+      title: 'Quiz',
+      progress: 'Question {current} of {total}',
+      checkAnswer: 'Check answer',
+      nextQuestion: 'Next question',
+      showResult: 'Show result',
+      correct: 'Correct',
+      incorrect: 'Not quite right',
+      resultTitle: 'Your result',
+      stars: '{score} of {total} stars',
+    },
+    glossary: {
+      action: 'Important terms',
+      title: 'Important terms',
+    },
     levels: {
       original: 'Original',
       high: 'High',
@@ -106,6 +147,15 @@ export default {
       large: 'Larger',
       xLarge: 'Largest',
     },
+    fontFamily: {
+      standard: 'Standard',
+      luciole: 'Luciole',
+      openDyslexic: 'Open Dyslexic',
+    },
+    fontMenu: {
+      size: 'Font size',
+      family: 'Font family',
+    },
     error: 'Could not load article.',
     print: 'Print',
     copyToClipboard: 'Copy to clipboard',
@@ -115,9 +165,24 @@ export default {
     wordError: 'Word export failed',
     availableLanguagesLink1: '{count} language',
     availableLanguagesLinkN: '{count} languages',
+    languageDialogTitle: 'Other Wikipedia languages',
+    languageDialogIntro:
+      'Wikipedia exists in many different languages. Each language version is written independently, so the same topic can be described with different detail, emphasis or perspective.',
+    languageDialogExample:
+      'For example, an article about a Swiss town may include many local details in German Wikipedia, while the English version may first explain more clearly where the place is.',
+    languageDialogListIntro: 'View the article about {title} in another Wikipedia.',
     languagesSuggested: 'Suggested languages',
     languagesWorldwide: 'Worldwide',
+    languageNoticeTitle: 'Display language changed',
+    languageNoticeDisplayLanguage: 'The website display language has been changed to {lang}.',
+    languageNoticeArticleLanguage:
+      'The Wikipedia article is still shown in {lang} and still comes from Wikipedia in that language.',
+    languageNoticeSearchAgain:
+      'Wikipedia exists in many different languages. Search for the article again so the article can be loaded from Wikipedia in the current language.',
+    languageNoticeOk: 'Got it',
+    languageNoticeSearchButton: 'Search article again',
     translateTo: 'Translate to {lang}',
+    close: 'Close',
   },
   languages: {
     de: 'German',
@@ -193,6 +258,12 @@ export default {
     placeholder: 'Ask something about this article…',
     send: 'Send',
     stop: 'Stop response',
+    clearHistory: 'Clear chat history',
+    copyAnswer: 'Copy to clipboard',
+    copySuccess: 'Answer copied to clipboard',
+    copyError: 'Failed to copy to clipboard',
+    expand: 'Expand chat window',
+    collapse: 'Shrink chat window',
     you: 'You',
     assistant: 'ki-pedia',
   },

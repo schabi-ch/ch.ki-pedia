@@ -3,12 +3,15 @@ import { computed, ref } from 'vue';
 import { api, getLocalizedMessage, notifySuccess } from 'boot/axios';
 import { LocalStorage } from 'quasar';
 import { getVersion, setVersion } from './article-cache';
+import { infoboxHtmlToText } from 'src/utils/infobox-text';
 
 const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 const TOC_OPEN_STORAGE_KEY = 'ki-pedia-article-toc-open';
 const FONT_SIZE_STORAGE_KEY = 'ki-pedia-font-size';
+const FONT_FAMILY_STORAGE_KEY = 'ki-pedia-font-family';
 
 export type FontSizeLevel = 'standard' | 'large' | 'x-large';
+export type FontFamily = 'standard' | 'luciole' | 'open-dyslexic';
 
 function getSavedFontSize(): FontSizeLevel {
   try {
@@ -23,6 +26,24 @@ function getSavedFontSize(): FontSizeLevel {
 function persistFontSize(val: FontSizeLevel): void {
   try {
     LocalStorage.set(FONT_SIZE_STORAGE_KEY, val);
+  } catch {
+    // ignore
+  }
+}
+
+function getSavedFontFamily(): FontFamily {
+  try {
+    const raw = LocalStorage.getItem(FONT_FAMILY_STORAGE_KEY) as unknown;
+    if (raw === 'standard' || raw === 'luciole' || raw === 'open-dyslexic') return raw;
+    return 'standard';
+  } catch {
+    return 'standard';
+  }
+}
+
+function persistFontFamily(val: FontFamily): void {
+  try {
+    LocalStorage.set(FONT_FAMILY_STORAGE_KEY, val);
   } catch {
     // ignore
   }
@@ -94,7 +115,7 @@ export interface Article {
 
 export type CefrLevel = 'a1' | 'a2' | 'b1' | 'b2' | 'c1';
 export type CefrSliderLevel = 'original' | CefrLevel;
-export type GradeLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type GradeLevel = 4 | 5 | 6 | 7 | 8 | 9;
 export type SimplifyMode = 'cefr' | 'grade';
 export type ArticleVariant =
   | 'original'
@@ -103,6 +124,7 @@ export type ArticleVariant =
 
 interface SimplifyRequestPayload {
   text: string;
+  sourceLang: string;
   mode: SimplifyMode;
   cefrLevel?: CefrLevel;
   gradeLevel?: GradeLevel;
@@ -113,12 +135,49 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface QuizAnswerOption {
+  text: string;
+  correct: boolean;
+}
+
+export interface QuizQuestion {
+  question: string;
+  answers: QuizAnswerOption[];
+  explanation: string;
+}
+
+export interface GlossaryTerm {
+  term: string;
+  explanation: string;
+}
+
+export interface SectionQuizState {
+  questions: QuizQuestion[];
+  loading: boolean;
+  loaded: boolean;
+  error: string;
+}
+
+export interface SectionGlossaryState {
+  terms: GlossaryTerm[];
+  loading: boolean;
+  loaded: boolean;
+  error: string;
+}
+
+type GlossaryCachePayload = Record<string, GlossaryTerm[]>;
+
 export interface ArticleLangLink {
   lang: string;
   title: string;
   wikiLang?: string;
   langName?: string;
   autonym?: string;
+}
+
+export interface ArticleTranslationInfo {
+  sourceLang: string;
+  targetLang: string;
 }
 
 export const useWikipediaStore = defineStore('wikipedia', () => {
@@ -141,6 +200,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const articleError = ref('');
   const simplifySourceText = ref('');
   const translateSourceLang = ref<string | null>(null);
+  const articleTranslation = ref<ArticleTranslationInfo | null>(null);
+  const sectionQuizzes = ref<Record<string, SectionQuizState>>({});
+  const sectionGlossaries = ref<Record<string, SectionGlossaryState>>({});
   let simplifyAbortController: AbortController | null = null;
   let simplifyRunId = 0;
   let translateAbortController: AbortController | null = null;
@@ -174,10 +236,16 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const tocOpen = ref(getSavedTocOpen());
 
   const fontSizeLevel = ref<FontSizeLevel>(getSavedFontSize());
+  const fontFamily = ref<FontFamily>(getSavedFontFamily());
 
   function setFontSize(val: FontSizeLevel) {
     fontSizeLevel.value = val;
     persistFontSize(val);
+  }
+
+  function setFontFamily(val: FontFamily) {
+    fontFamily.value = val;
+    persistFontFamily(val);
   }
 
   function setTocOpen(val: boolean, persist: boolean = true) {
@@ -210,6 +278,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     abortTranslateStream();
     translateLoading.value = false;
     translateSourceLang.value = null;
+    articleTranslation.value = null;
     if (sourceLang) {
       articleLang.value = sourceLang;
     }
@@ -245,6 +314,18 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     chatAbortController = null;
   }
 
+  function clearChatHistory() {
+    chatRunId += 1;
+    abortChatStream();
+    chatLoading.value = false;
+    chatMessages.value = [];
+  }
+
+  function clearSectionLearningState() {
+    sectionQuizzes.value = {};
+    sectionGlossaries.value = {};
+  }
+
   async function search(query: string) {
     searchQuery.value = query;
     searchLoading.value = true;
@@ -262,16 +343,25 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     }
   }
 
+  function clearSearch() {
+    searchQuery.value = '';
+    searchResults.value = [];
+    searchError.value = '';
+    searchLoading.value = false;
+  }
+
   async function loadArticle(title: string) {
     abortSimplifyStream();
     abortTranslateStream();
     translateLoading.value = false;
     translateSourceLang.value = null;
+    articleTranslation.value = null;
     articleLoading.value = true;
     articleError.value = '';
     article.value = null;
     articleLanguages.value = [];
     resetSimplificationState();
+    clearSectionLearningState();
     articleLang.value = getWikiLang();
     chatMessages.value = [];
     abortChatStream();
@@ -344,6 +434,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       abortSimplifyStream();
       simplifiedContent.value = cached;
       simplifySourceText.value = '';
+      restoreSectionGlossariesFromCache(article.value.title, articleLang.value, variant);
       return;
     }
     // Get the source text: use the original in the current articleLang
@@ -352,6 +443,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       article.value.contentMarkdown;
     await streamSimplifiedContent({
       sourceText,
+      sourceLang: articleLang.value,
       variant,
       cacheTitle: article.value.title,
       cacheLang: articleLang.value,
@@ -365,6 +457,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     const sourceLang = articleLang.value;
     const sourceTitle = article.value.title;
     translateSourceLang.value = sourceLang;
+    articleTranslation.value = { sourceLang, targetLang };
     articleLang.value = targetLang;
     const variant = activeVariant.value;
     // Check cache for the target version
@@ -372,6 +465,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     if (cached) {
       simplifiedContent.value = cached;
       simplifySourceText.value = '';
+      if (variant !== 'original') {
+        restoreSectionGlossariesFromCache(sourceTitle, targetLang, variant);
+      }
       translateSourceLang.value = null;
       return;
     }
@@ -393,6 +489,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         console.error('Translate error:', err);
         simplifiedContent.value = '';
         translateSourceLang.value = null;
+        articleTranslation.value = null;
         return;
       }
     }
@@ -405,6 +502,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     // Now simplify the translated original
     await streamSimplifiedContent({
       sourceText: translatedOriginal,
+      sourceLang: targetLang,
       variant,
       cacheTitle: sourceTitle,
       cacheLang: targetLang,
@@ -486,6 +584,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     abortTranslateStream();
     translateLoading.value = false;
     translateSourceLang.value = null;
+    articleTranslation.value = null;
     const langLink = articleLanguages.value.find((l) => l.lang === targetLang);
     if (!langLink) return;
     const requestLang = langLink.wikiLang ?? targetLang;
@@ -493,6 +592,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleLoading.value = true;
     articleError.value = '';
     resetSimplificationState();
+    clearSectionLearningState();
     articleLang.value = targetLang;
     chatMessages.value = [];
     abortChatStream();
@@ -537,6 +637,8 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         body: JSON.stringify({
           articleTitle: article.value.title,
           articleContent: simplifiedContent.value || article.value.contentMarkdown,
+          infoboxContent: infoboxHtmlToText(article.value.infoboxHtml),
+          isOriginalArticle: activeVariant.value === 'original',
           message,
           history,
         }),
@@ -597,8 +699,90 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     }
   }
 
+  async function loadSectionQuiz(options: {
+    sectionKey: string;
+    text: string;
+    sectionTitle: string;
+  }): Promise<QuizQuestion[]> {
+    const existing = sectionQuizzes.value[options.sectionKey];
+    if (existing?.loaded) return existing.questions;
+
+    sectionQuizzes.value[options.sectionKey] = {
+      questions: existing?.questions ?? [],
+      loading: true,
+      loaded: false,
+      error: '',
+    };
+
+    try {
+      const response = await api.post<{ questions: QuizQuestion[] }>('/ai/quiz', {
+        text: options.text,
+        sourceLang: articleLang.value,
+        gradeLevel: getActiveGradeLevel(),
+        sectionTitle: options.sectionTitle,
+      });
+      sectionQuizzes.value[options.sectionKey] = {
+        questions: response.data.questions,
+        loading: false,
+        loaded: true,
+        error: '',
+      };
+      return response.data.questions;
+    } catch (err) {
+      sectionQuizzes.value[options.sectionKey] = {
+        questions: existing?.questions ?? [],
+        loading: false,
+        loaded: false,
+        error: err instanceof Error ? err.message : 'Quiz failed',
+      };
+      throw err;
+    }
+  }
+
+  async function loadSectionGlossary(options: {
+    sectionKey: string;
+    text: string;
+    sectionTitle: string;
+  }): Promise<GlossaryTerm[]> {
+    const existing = sectionGlossaries.value[options.sectionKey];
+    if (existing?.loaded) return existing.terms;
+
+    sectionGlossaries.value[options.sectionKey] = {
+      terms: existing?.terms ?? [],
+      loading: true,
+      loaded: false,
+      error: '',
+    };
+
+    try {
+      const response = await api.post<{ terms: GlossaryTerm[] }>('/ai/glossary', {
+        text: options.text,
+        sourceLang: articleLang.value,
+        gradeLevel: getActiveGradeLevel(),
+        sectionTitle: options.sectionTitle,
+      });
+      sectionGlossaries.value[options.sectionKey] = {
+        terms: response.data.terms,
+        loading: false,
+        loaded: true,
+        error: '',
+      };
+      persistCurrentVariantGlossaries();
+      return response.data.terms;
+    } catch (err) {
+      sectionGlossaries.value[options.sectionKey] = {
+        terms: existing?.terms ?? [],
+        loading: false,
+        loaded: false,
+        error: err instanceof Error ? err.message : 'Glossary failed',
+      };
+      throw err;
+    }
+  }
+
   async function streamSimplifiedContent(options: {
     sourceText: string;
+    sourceLang: string;
     variant: Exclude<ArticleVariant, 'original'>;
     cacheTitle: string;
     cacheLang: string;
@@ -619,7 +803,11 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          buildSimplifyPayload(options.sourceText, options.variant),
+          buildSimplifyPayload(
+            options.sourceText,
+            options.sourceLang,
+            options.variant,
+          ),
         ),
         signal: controller.signal,
       });
@@ -682,15 +870,25 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     activeVariant.value = 'original';
     activeSimplifyMode.value = 'cefr';
     cefrLevel.value = 'original';
+    clearSectionLearningState();
+  }
+
+  function getActiveGradeLevel(): GradeLevel | undefined {
+    if (!activeVariant.value.startsWith('grade:')) return undefined;
+    const parsed = Number(activeVariant.value.slice('grade:'.length));
+    if (parsed < 4 || parsed > 9) return undefined;
+    return parsed as GradeLevel;
   }
 
   function buildSimplifyPayload(
     text: string,
+    sourceLang: string,
     variant: Exclude<ArticleVariant, 'original'>,
   ): SimplifyRequestPayload {
     if (variant.startsWith('cefr:')) {
       return {
         text,
+        sourceLang,
         mode: 'cefr',
         cefrLevel: variant.slice('cefr:'.length) as CefrLevel,
       };
@@ -698,9 +896,76 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
     return {
       text,
+      sourceLang,
       mode: 'grade',
       gradeLevel: Number(variant.slice('grade:'.length)) as GradeLevel,
     };
+  }
+
+  function glossaryCacheLevel(variant: Exclude<ArticleVariant, 'original'>): string {
+    return `${variant}:glossary`;
+  }
+
+  function restoreSectionGlossariesFromCache(
+    title: string,
+    lang: string,
+    variant: Exclude<ArticleVariant, 'original'>,
+  ) {
+    const raw = getVersion(title, lang, glossaryCacheLevel(variant));
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as GlossaryCachePayload;
+      const restored: Record<string, SectionGlossaryState> = {};
+      for (const [key, terms] of Object.entries(parsed)) {
+        if (!Array.isArray(terms)) continue;
+        restored[key] = {
+          terms: terms.filter(
+            (term): term is GlossaryTerm =>
+              typeof term?.term === 'string' && typeof term?.explanation === 'string',
+          ),
+          loading: false,
+          loaded: true,
+          error: '',
+        };
+      }
+
+      sectionGlossaries.value = {
+        ...sectionGlossaries.value,
+        ...restored,
+      };
+    } catch (err) {
+      console.error('Failed to restore glossary cache', err);
+    }
+  }
+
+  function persistCurrentVariantGlossaries() {
+    const currentArticle = article.value;
+    const variant = activeVariant.value;
+    if (!currentArticle || variant === 'original') return;
+
+    const prefix = [
+      currentArticle.title,
+      articleLang.value,
+      variant,
+    ].join(':');
+
+    const entries = Object.entries(sectionGlossaries.value)
+      .filter(
+        ([key, state]) =>
+          key.startsWith(prefix) && state.loaded && state.terms.length > 0,
+      )
+      .map(([key, state]) => [key, state.terms] as const);
+
+    if (entries.length === 0) return;
+
+    const payload: GlossaryCachePayload = Object.fromEntries(entries);
+    setVersion(
+      currentArticle.title,
+      articleLang.value,
+      glossaryCacheLevel(variant),
+      JSON.stringify(payload),
+    );
   }
 
   return {
@@ -717,6 +982,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     cefrLevel,
     gradeLevel,
     articleLang,
+    articleTranslation,
+    sectionQuizzes,
+    sectionGlossaries,
     articleLoading,
     simplifyLoading,
     translateLoading,
@@ -728,7 +996,10 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     toggleToc,
     fontSizeLevel,
     setFontSize,
+    fontFamily,
+    setFontFamily,
     search,
+    clearSearch,
     loadArticle,
     loadArticleInLanguage,
     applyCefrLevel,
@@ -738,9 +1009,12 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     abortTranslateStream,
     cancelTranslateByUser,
     sendMessage,
+    loadSectionQuiz,
+    loadSectionGlossary,
     abortSimplifyStream,
     cancelSimplifyByUser,
     abortChatStream,
+    clearChatHistory,
   };
 });
 

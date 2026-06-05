@@ -3,19 +3,19 @@
     <div class="stats-shell">
       <div class="row items-center justify-between q-mb-md stats-heading">
         <div>
-          <h1 class="stats-title q-my-none">Statistik</h1>
-          <div class="text-body2 text-grey-7">Monatliche Nutzungszahlen</div>
+          <h1 class="stats-title q-my-none">Statistics</h1>
+          <div class="text-body2 text-grey-7">Monthly usage figures</div>
         </div>
-        <q-btn v-if="isUnlocked" flat round icon="logout" :aria-label="'Abmelden'" @click="lock" />
+        <q-btn v-if="isUnlocked" flat round icon="logout" :aria-label="'Sign out'" @click="lock" />
       </div>
 
       <q-form v-if="!isUnlocked" class="stats-login row items-end q-col-gutter-sm" @submit.prevent="loadStats">
         <div class="col-12 col-sm-8 col-md-5">
-          <q-input v-model="password" outlined dense type="password" label="Passwort" autocomplete="current-password"
+          <q-input v-model="password" outlined dense type="password" label="Password" autocomplete="current-password"
             :disable="loading" autofocus />
         </div>
         <div class="col-12 col-sm-auto">
-          <q-btn color="primary" icon="lock_open" label="Anzeigen" type="submit" :loading="loading"
+          <q-btn color="primary" icon="lock_open" label="Show" type="submit" :loading="loading"
             :disable="!password.trim()" no-caps />
         </div>
       </q-form>
@@ -24,10 +24,15 @@
         {{ errorMessage }}
       </q-banner>
 
-      <q-table v-if="isUnlocked" flat bordered class="stats-table" title="Monatswerte" :rows="rows" :columns="columns"
-        row-key="monthPrimary" :loading="loading" :pagination="pagination" binary-state-sort>
+      <q-table v-if="isUnlocked" flat bordered class="stats-table" title="Monthly values" :rows="tableRows"
+        :columns="tableColumns" row-key="id" :loading="loading" :pagination="pagination" binary-state-sort hide-bottom>
+        <template #body-cell-metric="props">
+          <q-td :props="props" :class="{ 'metric-section': props.row.isSection }">
+            {{ props.row.metric }}
+          </q-td>
+        </template>
         <template #top-right>
-          <q-btn flat round icon="refresh" :aria-label="'Aktualisieren'" :loading="loading" @click="loadStats" />
+          <q-btn flat round icon="refresh" :aria-label="'Refresh'" :loading="loading" @click="loadStats" />
         </template>
       </q-table>
     </div>
@@ -51,47 +56,88 @@ interface StatsRow {
   translations: number;
   chats: number;
   chat_questions: number;
+  url_ki_pedia_ch: number;
+  url_ki_pedia_org: number;
+  url_wikiped_ia_ch: number;
+  url_wikiped_ia_org: number;
+  gui_lang_de: number;
+  gui_lang_fr: number;
+  gui_lang_it: number;
+  gui_lang_rm: number;
+  gui_lang_en: number;
   simplify_cefr_a1: number;
   simplify_cefr_a2: number;
   simplify_cefr_b1: number;
   simplify_cefr_b2: number;
   simplify_cefr_c1: number;
-  simplify_grade_1: number;
-  simplify_grade_2: number;
-  simplify_grade_3: number;
   simplify_grade_4: number;
   simplify_grade_5: number;
   simplify_grade_6: number;
   simplify_grade_7: number;
   simplify_grade_8: number;
   simplify_grade_9: number;
+  quizzes: number;
+  glossaries: number;
 }
 
-type StatsColumn = QTableColumn<StatsRow>;
+type StatsMetricKey = Exclude<keyof StatsRow, 'monthPrimary'>;
 
-const columns: StatsColumn[] = [
-  { name: 'monthPrimary', label: 'Monat', field: 'monthPrimary', align: 'left', sortable: true },
-  { name: 'visits', label: 'Besuche', field: 'visits', align: 'right', sortable: true },
-  { name: 'visitors', label: 'Besucher', field: 'visitors', align: 'right', sortable: true },
-  { name: 'pages', label: 'Seiten', field: 'pages', align: 'right', sortable: true },
-  { name: 'article_views', label: 'Artikel', field: 'article_views', align: 'right', sortable: true },
-  { name: 'translations', label: 'Übersetzungen', field: 'translations', align: 'right', sortable: true },
-  { name: 'chats', label: 'Chats', field: 'chats', align: 'right', sortable: true },
-  { name: 'chat_questions', label: 'Fragen', field: 'chat_questions', align: 'right', sortable: true },
-  { name: 'simplify_cefr_a1', label: 'CEFR A1', field: 'simplify_cefr_a1', align: 'right', sortable: true },
-  { name: 'simplify_cefr_a2', label: 'CEFR A2', field: 'simplify_cefr_a2', align: 'right', sortable: true },
-  { name: 'simplify_cefr_b1', label: 'CEFR B1', field: 'simplify_cefr_b1', align: 'right', sortable: true },
-  { name: 'simplify_cefr_b2', label: 'CEFR B2', field: 'simplify_cefr_b2', align: 'right', sortable: true },
-  { name: 'simplify_cefr_c1', label: 'CEFR C1', field: 'simplify_cefr_c1', align: 'right', sortable: true },
-  { name: 'simplify_grade_1', label: 'Klasse 1', field: 'simplify_grade_1', align: 'right', sortable: true },
-  { name: 'simplify_grade_2', label: 'Klasse 2', field: 'simplify_grade_2', align: 'right', sortable: true },
-  { name: 'simplify_grade_3', label: 'Klasse 3', field: 'simplify_grade_3', align: 'right', sortable: true },
-  { name: 'simplify_grade_4', label: 'Klasse 4', field: 'simplify_grade_4', align: 'right', sortable: true },
-  { name: 'simplify_grade_5', label: 'Klasse 5', field: 'simplify_grade_5', align: 'right', sortable: true },
-  { name: 'simplify_grade_6', label: 'Klasse 6', field: 'simplify_grade_6', align: 'right', sortable: true },
-  { name: 'simplify_grade_7', label: 'Klasse 7', field: 'simplify_grade_7', align: 'right', sortable: true },
-  { name: 'simplify_grade_8', label: 'Klasse 8', field: 'simplify_grade_8', align: 'right', sortable: true },
-  { name: 'simplify_grade_9', label: 'Klasse 9', field: 'simplify_grade_9', align: 'right', sortable: true },
+interface MetricSectionDefinition {
+  type: 'section';
+  label: string;
+}
+
+interface MetricValueDefinition {
+  type: 'metric';
+  key: StatsMetricKey;
+  label: string;
+}
+
+type MetricDefinition = MetricSectionDefinition | MetricValueDefinition;
+
+interface MetricRow {
+  id: string;
+  metric: string;
+  isSection: boolean;
+  [monthPrimary: string]: string | number | boolean;
+}
+
+const metricDefinitions: MetricDefinition[] = [
+  { type: 'metric', key: 'visits', label: 'Visits' },
+  { type: 'metric', key: 'visitors', label: 'Visitors' },
+  { type: 'metric', key: 'pages', label: 'Pages' },
+  { type: 'metric', key: 'article_views', label: 'Articles' },
+  { type: 'metric', key: 'translations', label: 'Translations' },
+  { type: 'metric', key: 'quizzes', label: 'Quizzes' },
+  { type: 'metric', key: 'glossaries', label: 'Glossaries' },
+  { type: 'metric', key: 'chats', label: 'Chats' },
+  { type: 'metric', key: 'chat_questions', label: 'Questions' },
+
+  { type: 'section', label: 'Simplifications' },
+  { type: 'metric', key: 'simplify_grade_4', label: 'Grade 4' },
+  { type: 'metric', key: 'simplify_grade_5', label: 'Grade 5' },
+  { type: 'metric', key: 'simplify_grade_6', label: 'Grade 6' },
+  { type: 'metric', key: 'simplify_grade_7', label: 'Grade 7' },
+  { type: 'metric', key: 'simplify_grade_8', label: 'Grade 8' },
+  { type: 'metric', key: 'simplify_grade_9', label: 'Grade 9' },
+  { type: 'metric', key: 'simplify_cefr_a1', label: 'CEFR A1' },
+  { type: 'metric', key: 'simplify_cefr_a2', label: 'CEFR A2' },
+  { type: 'metric', key: 'simplify_cefr_b1', label: 'CEFR B1' },
+  { type: 'metric', key: 'simplify_cefr_b2', label: 'CEFR B2' },
+  { type: 'metric', key: 'simplify_cefr_c1', label: 'CEFR C1' },
+
+  { type: 'section', label: 'URLs' },
+  { type: 'metric', key: 'url_ki_pedia_ch', label: 'ki-pedia.ch' },
+  { type: 'metric', key: 'url_ki_pedia_org', label: 'ki-pedia.org' },
+  { type: 'metric', key: 'url_wikiped_ia_ch', label: 'wikiped-ia.ch' },
+  { type: 'metric', key: 'url_wikiped_ia_org', label: 'wikiped-ia.org' },
+
+  { type: 'section', label: 'GUI Languages' },
+  { type: 'metric', key: 'gui_lang_de', label: 'DE' },
+  { type: 'metric', key: 'gui_lang_fr', label: 'FR' },
+  { type: 'metric', key: 'gui_lang_it', label: 'IT' },
+  { type: 'metric', key: 'gui_lang_rm', label: 'RM' },
+  { type: 'metric', key: 'gui_lang_en', label: 'EN' },
 ];
 
 export default defineComponent({
@@ -100,21 +146,60 @@ export default defineComponent({
   data () {
     return {
       password: '',
-      rows: [] as StatsRow[],
-      columns,
+      monthlyRows: [] as StatsRow[],
       loading: false,
       errorMessage: '',
       pagination: {
-        sortBy: 'monthPrimary',
-        descending: true,
-        rowsPerPage: 12,
+        rowsPerPage: 30,
       },
     };
   },
 
   computed: {
     isUnlocked (): boolean {
-      return this.rows.length > 0 || Boolean(this.password.trim() && this.hasStoredPassword());
+      return this.monthlyRows.length > 0 || Boolean(this.password.trim() && this.hasStoredPassword());
+    },
+
+    sortedMonthlyRows (): StatsRow[] {
+      return [...this.monthlyRows].sort((a, b) => b.monthPrimary.localeCompare(a.monthPrimary));
+    },
+
+    tableColumns (): QTableColumn<MetricRow>[] {
+      const monthColumns = this.sortedMonthlyRows.map((row) => ({
+        name: row.monthPrimary,
+        label: row.monthPrimary,
+        field: (metricRow: MetricRow) => metricRow[row.monthPrimary] ?? 0,
+        align: 'left' as const,
+        sortable: true,
+      }));
+
+      return [
+        { name: 'metric', label: 'Metric', field: 'metric', align: 'left', sortable: false },
+        ...monthColumns,
+      ];
+    },
+
+    tableRows (): MetricRow[] {
+      return metricDefinitions.map((definition, index) => {
+        const row: MetricRow = {
+          id: `${definition.type}-${index}`,
+          metric: definition.label,
+          isSection: definition.type === 'section',
+        };
+
+        if (definition.type === 'section') {
+          for (const monthRow of this.sortedMonthlyRows) {
+            row[monthRow.monthPrimary] = '';
+          }
+          return row;
+        }
+
+        for (const monthRow of this.sortedMonthlyRows) {
+          row[monthRow.monthPrimary] = monthRow[definition.key];
+        }
+
+        return row;
+      });
     },
   },
 
@@ -146,19 +231,19 @@ export default defineComponent({
             'X-Silent-Error': 'true',
           },
         });
-        this.rows = response.data;
+        this.monthlyRows = response.data;
         if (typeof window !== 'undefined') {
           window.sessionStorage.setItem(STATS_PASSWORD_KEY, trimmedPassword);
         }
       } catch (error) {
-        this.rows = [];
+        this.monthlyRows = [];
         if (axios.isAxiosError(error) && error.response?.status === 403) {
-          this.errorMessage = 'Das Passwort ist ungültig oder nicht konfiguriert.';
+          this.errorMessage = 'The password is invalid or not configured.';
           this.clearStoredPassword();
         } else if (axios.isAxiosError(error)) {
           this.errorMessage = extractApiErrorMessage(error as AxiosError<ApiErrorPayload>);
         } else {
-          this.errorMessage = 'Statistik konnte nicht geladen werden.';
+          this.errorMessage = 'Statistics could not be loaded.';
         }
       } finally {
         this.loading = false;
@@ -168,7 +253,7 @@ export default defineComponent({
     lock () {
       this.clearStoredPassword();
       this.password = '';
-      this.rows = [];
+      this.monthlyRows = [];
       this.errorMessage = '';
     },
 
@@ -207,6 +292,34 @@ export default defineComponent({
 
 .stats-table {
   background: var(--kp-surface);
+
+  :deep(.q-table__middle) {
+    overflow-x: auto;
+  }
+
+  :deep(table) {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+  }
+
+  :deep(th),
+  :deep(td) {
+    text-align: left !important;
+    white-space: nowrap;
+    width: 1%;
+  }
+
+  :deep(tbody tr:nth-child(even)) {
+    background: rgba(2, 132, 199, 0.06);
+  }
+}
+
+.metric-section {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #6b7280;
 }
 
 @media (max-width: 599px) {
