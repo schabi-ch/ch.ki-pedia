@@ -59,7 +59,7 @@ Wenn `AI_PROVIDER` nicht gesetzt ist, verwendet das Backend `anthropic`.
 
 ## Statistik / MySQL
 
-Die Nutzungsstatistik schreibt monatliche aggregierte Zähler in die MySQL-Tabelle `visitors`. Ohne vollständige MySQL-Konfiguration startet das Backend weiterhin; Statistik-Schreibzugriffe werden dann als No-Op behandelt.
+Die Nutzungsstatistik schreibt monatliche aggregierte Zähler in die MySQL-Tabelle `visitors`. Ohne vollständige MySQL-Konfiguration startet das Backend weiterhin; Statistik-Schreibzugriffe werden dann als No-Op behandelt. Beim Zaehlen eines neuen Besuchs (`visits`) wird zusaetzlich die erkannte Domain und GUI-Sprache hochgezaehlt.
 
 ```env
 MYSQL_HOST=127.0.0.1
@@ -78,26 +78,32 @@ Schema:
 CREATE TABLE IF NOT EXISTS visitors (
   monthPrimary varchar(5) NOT NULL PRIMARY KEY,
   visitors int(11) NOT NULL DEFAULT 0,
+  visits int(11) NOT NULL DEFAULT 0,
+  pages int(11) NOT NULL DEFAULT 0,
   article_views int(11) NOT NULL DEFAULT 0,
   simplify_cefr_a1 int(11) NOT NULL DEFAULT 0,
   simplify_cefr_a2 int(11) NOT NULL DEFAULT 0,
   simplify_cefr_b1 int(11) NOT NULL DEFAULT 0,
   simplify_cefr_b2 int(11) NOT NULL DEFAULT 0,
   simplify_cefr_c1 int(11) NOT NULL DEFAULT 0,
-  simplify_grade_1 int(11) NOT NULL DEFAULT 0,
-  simplify_grade_2 int(11) NOT NULL DEFAULT 0,
-  simplify_grade_3 int(11) NOT NULL DEFAULT 0,
   simplify_grade_4 int(11) NOT NULL DEFAULT 0,
   simplify_grade_5 int(11) NOT NULL DEFAULT 0,
   simplify_grade_6 int(11) NOT NULL DEFAULT 0,
   simplify_grade_7 int(11) NOT NULL DEFAULT 0,
   simplify_grade_8 int(11) NOT NULL DEFAULT 0,
   simplify_grade_9 int(11) NOT NULL DEFAULT 0,
-  translations int(11) NOT NULL DEFAULT 0,
   chats int(11) NOT NULL DEFAULT 0,
   chat_questions int(11) NOT NULL DEFAULT 0,
-  visits int(11) NOT NULL DEFAULT 0,
-  pages int(11) NOT NULL DEFAULT 0
+  translations int(11) NOT NULL DEFAULT 0,
+  url_ki_pedia_ch int(11) NOT NULL DEFAULT 0,
+  url_ki_pedia_org int(11) NOT NULL DEFAULT 0,
+  url_wikiped_ia_ch int(11) NOT NULL DEFAULT 0,
+  url_wikiped_ia_org int(11) NOT NULL DEFAULT 0,
+  gui_lang_de int(11) NOT NULL DEFAULT 0,
+  gui_lang_fr int(11) NOT NULL DEFAULT 0,
+  gui_lang_it int(11) NOT NULL DEFAULT 0,
+  gui_lang_rm int(11) NOT NULL DEFAULT 0,
+  gui_lang_en int(11) NOT NULL DEFAULT 0
 );
 ```
 
@@ -109,17 +115,26 @@ ALTER TABLE visitors ADD COLUMN simplify_cefr_a2 int(11) NOT NULL DEFAULT 0 AFTE
 ALTER TABLE visitors ADD COLUMN simplify_cefr_b1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_a2;
 ALTER TABLE visitors ADD COLUMN simplify_cefr_b2 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_b1;
 ALTER TABLE visitors ADD COLUMN simplify_cefr_c1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_b2;
-ALTER TABLE visitors ADD COLUMN simplify_grade_1 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_c1;
-ALTER TABLE visitors ADD COLUMN simplify_grade_2 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_1;
-ALTER TABLE visitors ADD COLUMN simplify_grade_3 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_2;
-ALTER TABLE visitors ADD COLUMN simplify_grade_4 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_3;
+ALTER TABLE visitors ADD COLUMN simplify_grade_4 int(11) NOT NULL DEFAULT 0 AFTER simplify_cefr_c1;
 ALTER TABLE visitors ADD COLUMN simplify_grade_5 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_4;
 ALTER TABLE visitors ADD COLUMN simplify_grade_6 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_5;
 ALTER TABLE visitors ADD COLUMN simplify_grade_7 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_6;
 ALTER TABLE visitors ADD COLUMN simplify_grade_8 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_7;
 ALTER TABLE visitors ADD COLUMN simplify_grade_9 int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_8;
 ALTER TABLE visitors ADD COLUMN translations int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_9;
+ALTER TABLE visitors ADD COLUMN url_ki_pedia_ch int(11) NOT NULL DEFAULT 0 AFTER pages;
+ALTER TABLE visitors ADD COLUMN url_ki_pedia_org int(11) NOT NULL DEFAULT 0 AFTER url_ki_pedia_ch;
+ALTER TABLE visitors ADD COLUMN url_wikiped_ia_ch int(11) NOT NULL DEFAULT 0 AFTER url_ki_pedia_org;
+ALTER TABLE visitors ADD COLUMN url_wikiped_ia_org int(11) NOT NULL DEFAULT 0 AFTER url_wikiped_ia_ch;
+ALTER TABLE visitors ADD COLUMN gui_lang_de int(11) NOT NULL DEFAULT 0 AFTER url_wikiped_ia_org;
+ALTER TABLE visitors ADD COLUMN gui_lang_fr int(11) NOT NULL DEFAULT 0 AFTER gui_lang_de;
+ALTER TABLE visitors ADD COLUMN gui_lang_it int(11) NOT NULL DEFAULT 0 AFTER gui_lang_fr;
+ALTER TABLE visitors ADD COLUMN gui_lang_rm int(11) NOT NULL DEFAULT 0 AFTER gui_lang_it;
+ALTER TABLE visitors ADD COLUMN gui_lang_en int(11) NOT NULL DEFAULT 0 AFTER gui_lang_rm;
 ```
+
+Falls `simplify_grade_1` bis `simplify_grade_3` noch existieren, koennen sie mit `src/stats/drop-simplify-grade-1-3.sql` entfernt werden.
+Die URL- und GUI-Sprachspalten fuer bestehende Datenbanken koennen mit `src/stats/add-visit-url-gui-lang-columns.sql` angelegt werden.
 
 ## Project setup
 

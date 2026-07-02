@@ -2,10 +2,13 @@ import { api } from 'boot/axios';
 
 const VISIT_STORAGE_KEY = 'kp_visit';
 const VISITOR_STORAGE_KEY = 'kp_visitor';
+const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 
 interface VisitPayload {
   newSession: boolean;
   newVisitor: boolean;
+  siteHost?: string;
+  guiLang?: string;
 }
 
 function todayKey(): string {
@@ -36,6 +39,19 @@ function writeStorage(storage: Storage, key: string, value: string): void {
   }
 }
 
+function getGuiLang(): string {
+  const savedLocale = readStorage(window.localStorage, LOCALE_STORAGE_KEY) || 'de';
+  return savedLocale.toLowerCase().split('-')[0] || 'de';
+}
+
+function buildVisitPayload(payload: Pick<VisitPayload, 'newSession' | 'newVisitor'>): VisitPayload {
+  return {
+    ...payload,
+    siteHost: window.location.hostname,
+    guiLang: getGuiLang(),
+  };
+}
+
 async function postVisit(payload: VisitPayload): Promise<void> {
   try {
     await api.post('/stats/visit', payload, {
@@ -52,7 +68,7 @@ export async function trackPageView(isInitial: boolean): Promise<void> {
   }
 
   if (!isInitial) {
-    await postVisit({ newSession: false, newVisitor: false });
+    await postVisit(buildVisitPayload({ newSession: false, newVisitor: false }));
     return;
   }
 
@@ -69,5 +85,5 @@ export async function trackPageView(isInitial: boolean): Promise<void> {
     writeStorage(window.localStorage, VISITOR_STORAGE_KEY, today);
   }
 
-  await postVisit({ newSession, newVisitor });
+  await postVisit(buildVisitPayload({ newSession, newVisitor }));
 }

@@ -75,17 +75,30 @@
         </q-btn>
 
         <q-btn round dense flat icon="format_size" class="q-ml-sm" color="white">
-          <q-tooltip>{{ fontSizeTooltipLabel }}</q-tooltip>
-          <q-menu auto-close anchor="bottom right" self="top right" class="font-size-menu">
+          <q-tooltip>{{ fontTooltipLabel }}</q-tooltip>
+          <q-menu auto-close anchor="bottom right" self="top right" class="font-menu">
             <q-list separator style="min-width: 220px;">
+              <q-item-label header class="font-menu-section-label">{{ $t('article.fontMenu.size') }}</q-item-label>
               <q-item v-for="option in fontSizeOptions" :key="option.value" clickable
-                :active="option.value === fontSizeModel" active-class="font-size-option-active"
+                :active="option.value === fontSizeModel" active-class="font-option-active"
                 @click="onFontSizeChange(option.value)">
                 <q-item-section>
                   <q-item-label>{{ option.label }}</q-item-label>
                 </q-item-section>
                 <q-item-section side>
                   <q-icon v-if="option.value === fontSizeModel" name="check" size="18px" />
+                </q-item-section>
+              </q-item>
+
+              <q-item-label header class="font-menu-section-label">{{ $t('article.fontMenu.family') }}</q-item-label>
+              <q-item v-for="option in fontFamilyOptions" :key="option.value" clickable
+                :active="option.value === fontFamilyModel" active-class="font-option-active"
+                @click="onFontFamilyChange(option.value)">
+                <q-item-section>
+                  <q-item-label>{{ option.label }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-icon v-if="option.value === fontFamilyModel" name="check" size="18px" />
                 </q-item-section>
               </q-item>
             </q-list>
@@ -97,6 +110,31 @@
         </q-btn>
       </q-toolbar>
     </q-header>
+
+    <q-dialog v-model="articleLanguageNoticeOpen">
+      <q-card class="article-language-notice-card">
+        <q-card-section class="article-language-notice-header">
+          <div class="article-language-notice-title">{{ $t('article.languageNoticeTitle') }}</div>
+          <q-btn flat dense round icon="close" v-close-popup :aria-label="$t('article.close')" />
+        </q-card-section>
+
+        <q-card-section class="article-language-notice-copy">
+          <p>
+            {{ $t('article.languageNoticeDisplayLanguage', { lang: articleLanguageNoticeUiLangLabel }) }}
+          </p>
+          <p>
+            {{ $t('article.languageNoticeArticleLanguage', { lang: articleLanguageNoticeArticleLangLabel }) }}
+          </p>
+          <p>{{ $t('article.languageNoticeSearchAgain') }}</p>
+        </q-card-section>
+
+        <q-card-actions align="right" class="article-language-notice-actions">
+          <q-btn flat no-caps :label="$t('article.languageNoticeOk')" v-close-popup />
+          <q-btn color="primary" unelevated no-caps icon="search" :label="$t('article.languageNoticeSearchButton')"
+            @click="searchCurrentArticleAgain" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
     <q-drawer v-if="isArticlePage" :model-value="wikiStore.tocOpen" @update:model-value="wikiStore.setTocOpen"
       side="left" :width="280" :breakpoint="700" class="drawer-modern">
@@ -110,7 +148,6 @@
     <q-footer class="page-footer">
       <q-toolbar class="footer-toolbar">
         <div class="footer-links">
-          <router-link to="/about" class="footer-link">{{ $t('footer.about') }}</router-link>
           <router-link to="/imprint" class="footer-link">{{ $t('footer.imprint') }}</router-link>
           <router-link to="/privacy" class="footer-link">{{ $t('footer.privacy') }}</router-link>
         </div>
@@ -125,10 +162,11 @@ import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { saveLocale } from 'boot/i18n';
-import { useWikipediaStore, type FontSizeLevel } from 'stores/wikipedia';
+import { useWikipediaStore, type FontFamily, type FontSizeLevel } from 'stores/wikipedia';
 import ArticleToc from 'components/ArticleToc.vue';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
 import { resolveCurrentBranding } from 'src/utils/branding';
+import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 
 const DARK_STORAGE_KEY = 'ki-pedia-dark';
 
@@ -145,6 +183,7 @@ export default defineComponent({
     const $q = useQuasar();
     const { locale, t } = useI18n({ useScope: 'global' });
     const wikiStore = useWikipediaStore();
+    const articleLanguageNoticeOpen = ref(false);
     const {
       suggestions,
       showSuggestions,
@@ -177,6 +216,23 @@ export default defineComponent({
 
     const currentLocale = computed(() => locale.value);
     const showHeaderBrand = computed(() => $q.screen.gt.xs);
+
+    function languageLabelFor (code: string) {
+      const key = `languages.${code}`;
+      const translated = t(key as Parameters<typeof t>[0]);
+      if (translated !== key) {
+        return translated;
+      }
+
+      return getWikiLanguageLabel(code, locale.value) ?? code;
+    }
+
+    const articleLanguageNoticeArticleLangLabel = computed(() => languageLabelFor(wikiStore.articleLang));
+    const articleLanguageNoticeUiLangLabel = computed(() => {
+      const uiWikiLang = locale.value === 'en-US' ? 'en' : locale.value;
+      return languageLabelFor(uiWikiLang);
+    });
+
     const currentLocaleLabel = computed(() => {
       return localeOptions.find((option) => option.value === currentLocale.value)?.label ?? currentLocale.value;
     });
@@ -194,6 +250,23 @@ export default defineComponent({
 
       locale.value = val;
       saveLocale(val);
+
+      if (isArticlePage.value && wikiStore.article) {
+        articleLanguageNoticeOpen.value = true;
+      }
+    }
+
+    function searchCurrentArticleAgain () {
+      articleLanguageNoticeOpen.value = false;
+      resetSuggestions();
+
+      const title = wikiStore.article?.title?.trim();
+      if (title) {
+        void router.push({ path: '/', query: { q: title } });
+        return;
+      }
+
+      void router.push({ path: '/' });
     }
 
     function toggleDark () {
@@ -216,12 +289,31 @@ export default defineComponent({
     }
 
     watch(() => wikiStore.fontSizeLevel, applyFontSizeClass, { immediate: true });
+    const fontFamilyModel = computed<FontFamily>({
+      get: () => wikiStore.fontFamily,
+      set: (val) => {
+        wikiStore.setFontFamily(val);
+      },
+    });
+
+    function applyFontFamilyClass (val: FontFamily) {
+      document.documentElement.classList.remove('font-family-luciole', 'font-family-open-dyslexic');
+      if (val === 'luciole') document.documentElement.classList.add('font-family-luciole');
+      else if (val === 'open-dyslexic') document.documentElement.classList.add('font-family-open-dyslexic');
+    }
+
+    watch(() => wikiStore.fontFamily, applyFontFamilyClass, { immediate: true });
     const fontSizeOptions = computed<Array<{ label: string; value: FontSizeLevel }>>(() => [
       { label: t('article.fontSize.standard'), value: 'standard' },
       { label: t('article.fontSize.large'), value: 'large' },
       { label: t('article.fontSize.xLarge'), value: 'x-large' },
     ]);
-    const fontSizeTooltipLabel = computed(() => t('header.fontSizeTooltip'));
+    const fontFamilyOptions = computed<Array<{ label: string; value: FontFamily }>>(() => [
+      { label: t('article.fontFamily.standard'), value: 'standard' },
+      { label: t('article.fontFamily.luciole'), value: 'luciole' },
+      { label: t('article.fontFamily.openDyslexic'), value: 'open-dyslexic' },
+    ]);
+    const fontTooltipLabel = computed(() => t('header.fontTooltip'));
     const themeTooltipLabel = computed(() => {
       return isDark.value ? t('header.lightModeTooltip') : t('header.darkModeTooltip');
     });
@@ -230,25 +322,36 @@ export default defineComponent({
       fontSizeModel.value = val;
     }
 
+    function onFontFamilyChange (val: FontFamily) {
+      fontFamilyModel.value = val;
+    }
+
     return {
       router,
       branding,
       localeOptions,
       currentLocale,
+      articleLanguageNoticeOpen,
+      articleLanguageNoticeArticleLangLabel,
+      articleLanguageNoticeUiLangLabel,
       showHeaderBrand,
       currentLocaleLabel,
       localeTooltipLabel,
       isDark,
       onLocaleChange,
+      searchCurrentArticleAgain,
       toggleDark,
       wikiStore,
       hasArticle,
       isArticlePage,
       fontSizeModel,
       fontSizeOptions,
-      fontSizeTooltipLabel,
+      fontFamilyModel,
+      fontFamilyOptions,
+      fontTooltipLabel,
       themeTooltipLabel,
       onFontSizeChange,
+      onFontFamilyChange,
       suggestions,
       showSuggestions,
       highlightedIndex,
@@ -459,19 +562,70 @@ export default defineComponent({
   background: rgba(255, 255, 255, 0.06);
 }
 
-.font-size-menu {
+.font-menu {
   border-radius: 16px;
   background: var(--kp-surface);
   color: inherit;
   box-shadow: var(--kp-shadow-lg);
 }
 
-.font-size-option-active {
+.font-menu-section-label {
+  color: var(--kp-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  padding: 12px 16px 6px;
+  text-transform: uppercase;
+}
+
+.font-option-active {
   background: rgba(82, 40, 129, 0.06);
 }
 
-.body--dark .font-size-option-active {
+.body--dark .font-option-active {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.article-language-notice-card {
+  width: min(560px, calc(100vw - 32px));
+  border-radius: 16px;
+  background: var(--kp-surface);
+  color: inherit;
+}
+
+.article-language-notice-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 8px 24px;
+}
+
+.article-language-notice-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--kp-text-primary);
+}
+
+.article-language-notice-copy {
+  padding: 0 24px 8px;
+  color: var(--kp-text-secondary);
+  line-height: 1.55;
+}
+
+.article-language-notice-copy p {
+  margin: 0 0 10px;
+}
+
+.article-language-notice-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.article-language-notice-actions {
+  padding: 8px 16px 16px;
+  gap: 8px;
 }
 
 .page-footer {

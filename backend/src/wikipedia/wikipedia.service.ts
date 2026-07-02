@@ -1,6 +1,8 @@
 import {
   BadGatewayException,
+  GatewayTimeoutException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import * as cheerio from 'cheerio';
@@ -167,11 +169,27 @@ interface WikiPrefixResponse {
   };
 }
 
+interface WikipediaRequestContext {
+  operation: string;
+  lang?: string;
+  query?: string;
+  title?: string;
+  url?: string;
+}
+
 @Injectable()
 export class WikipediaService {
   private static readonly WIKIPEDIA_USER_AGENT =
     process.env.WIKIPEDIA_USER_AGENT ??
     'ch.ki-pedia/1.0 (https://github.com/schabi-ch/ch.ki-pedia)';
+
+  private static readonly WIKIPEDIA_TIMEOUT_MS = (() => {
+    const configured = Number.parseInt(
+      process.env.WIKIPEDIA_TIMEOUT_MS ?? '',
+      10,
+    );
+    return Number.isFinite(configured) && configured > 0 ? configured : 10000;
+  })();
 
   private static readonly NON_ARTICLE_NAMESPACES = new Set([
     'category',
@@ -203,10 +221,26 @@ export class WikipediaService {
     'wikipedia',
   ]);
 
+  private static readonly NON_READING_SELECTORS = [
+    '.bandeau-container',
+    '.ambox',
+    '.cmbox',
+    '.fmbox',
+    '.imbox',
+    '.mbox-small',
+    '.metadata',
+    '.mw-empty-elt',
+    '.noprint',
+    '.ombox',
+    '.tmbox',
+  ].join(',');
+
   private readonly turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
   });
+
+  private readonly logger = new Logger(WikipediaService.name);
 
   constructor() {
     this.turndown.use(tables);
@@ -382,6 +416,8 @@ export class WikipediaService {
     const infoboxHtml = infoboxEl.length ? $.html(infoboxEl) : '';
     infoboxEl.remove();
 
+    $(WikipediaService.NON_READING_SELECTORS).remove();
+
     // Extract appendix sections (Literatur/Weblinks/Einzelnachweise etc.).
     // They are removed from the main HTML so they neither appear in the
     // rendered article body nor in the Markdown sent to LLM endpoints.
@@ -438,7 +474,9 @@ export class WikipediaService {
       }
       // Unwrap <figure> in table cells to a plain <img> so pipe tables stay clean.
       $(tableEl)
-        .find('td figure:not(:has(figcaption)), th figure:not(:has(figcaption))')
+        .find(
+          'td figure:not(:has(figcaption)), th figure:not(:has(figcaption))',
+        )
         .each((_, fig) => {
           const img = $(fig).find('img').first();
           if (img.length) {
@@ -483,20 +521,94 @@ export class WikipediaService {
     return this.turndown.turndown(html);
   }
 
+  private getErrorStack(error: unknown): string | undefined {
+    return error instanceof Error ? error.stack : undefined;
+  }
+
+  private getErrorDetails(error: unknown): Record<string, string> {
+    if (error instanceof Error) {
+      return { name: error.name, message: error.message };
+    }
+
+    return { message: String(error) };
+  }
+
+  private logWikipediaError(
+    message: string,
+    context: WikipediaRequestContext,
+    error?: unknown,
+    details: Record<string, unknown> = {},
+  ): void {
+    const payload = {
+      ...context,
+      ...details,
+      ...(error === undefined ? {} : this.getErrorDetails(error)),
+    };
+
+    this.logger.error(
+      `${message}: ${JSON.stringify(payload)}`,
+      this.getErrorStack(error),
+    );
+  }
+
+  private isAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === 'AbortError';
+  }
+
   private async fetchWikipedia(
     url: string,
     init: RequestInit = {},
     retries = 1,
+    context: WikipediaRequestContext = { operation: 'wikipedia' },
   ): Promise<Response> {
     const headers = new Headers(init.headers);
     if (!headers.has('user-agent')) {
       headers.set('user-agent', WikipediaService.WIKIPEDIA_USER_AGENT);
     }
 
-    const response = await fetch(url, {
-      ...init,
-      headers,
-    });
+    const controller = new AbortController();
+    const upstreamSignal = init.signal;
+    const abortFromUpstream = () => controller.abort();
+
+    if (upstreamSignal?.aborted) {
+      controller.abort();
+    } else {
+      upstreamSignal?.addEventListener('abort', abortFromUpstream, {
+        once: true,
+      });
+    }
+
+    const timeout = setTimeout(
+      () => controller.abort(),
+      WikipediaService.WIKIPEDIA_TIMEOUT_MS,
+    );
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...init,
+        headers,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      this.logWikipediaError(
+        this.isAbortError(error)
+          ? 'Wikipedia request timed out'
+          : 'Wikipedia request failed',
+        { ...context, url },
+        error,
+        { timeoutMs: WikipediaService.WIKIPEDIA_TIMEOUT_MS },
+      );
+
+      if (this.isAbortError(error)) {
+        throw new GatewayTimeoutException('Wikipedia request timed out');
+      }
+
+      throw new BadGatewayException('Wikipedia request failed');
+    } finally {
+      clearTimeout(timeout);
+      upstreamSignal?.removeEventListener('abort', abortFromUpstream);
+    }
 
     if ((response.status === 429 || response.status === 503) && retries > 0) {
       const retryAfter = Number.parseInt(
@@ -508,10 +620,59 @@ export class WikipediaService {
           ? Math.min(retryAfter * 1000, 2000)
           : 250;
       await new Promise((resolve) => setTimeout(resolve, delayMs));
-      return this.fetchWikipedia(url, init, retries - 1);
+      return this.fetchWikipedia(url, init, retries - 1, context);
     }
 
     return response;
+  }
+
+  private async readWikipediaJson<T>(
+    response: Response,
+    context: WikipediaRequestContext,
+  ): Promise<T> {
+    try {
+      return (await response.json()) as T;
+    } catch (error) {
+      this.logWikipediaError(
+        'Wikipedia API returned invalid JSON',
+        context,
+        error,
+        { status: response.status },
+      );
+      throw new BadGatewayException('Wikipedia API returned invalid JSON');
+    }
+  }
+
+  private async readWikipediaText(
+    response: Response,
+    context: WikipediaRequestContext,
+  ): Promise<string> {
+    try {
+      return await response.text();
+    } catch (error) {
+      this.logWikipediaError(
+        'Wikipedia API returned unreadable text',
+        context,
+        error,
+        { status: response.status },
+      );
+      throw new BadGatewayException('Wikipedia API returned unreadable text');
+    }
+  }
+
+  private logUnsuccessfulWikipediaResponse(
+    response: Response,
+    context: WikipediaRequestContext,
+  ): void {
+    this.logWikipediaError(
+      'Wikipedia API returned unsuccessful status',
+      context,
+      undefined,
+      {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+      },
+    );
   }
 
   async search(query: string, lang = 'en'): Promise<WikiSearchResult[]> {
@@ -527,15 +688,21 @@ export class WikipediaService {
       format: 'json',
       origin: '*',
     });
+    const url = `${baseUrl}?${params}`;
+    const context = { operation: 'search', lang, query, url };
 
-    const response = await this.fetchWikipedia(`${baseUrl}?${params}`);
+    const response = await this.fetchWikipedia(url, {}, 1, context);
     if (!response.ok) {
       if (response.status === 429) {
         return [];
       }
+      this.logUnsuccessfulWikipediaResponse(response, context);
       throw new BadGatewayException(`Wikipedia API error: ${response.status}`);
     }
-    const data = (await response.json()) as WikiGeneratorSearchResponse;
+    const data = await this.readWikipediaJson<WikiGeneratorSearchResponse>(
+      response,
+      context,
+    );
 
     if (!data.query?.pages) {
       return [];
@@ -568,16 +735,27 @@ export class WikipediaService {
           accept: 'text/html; charset=utf-8',
         },
       },
+      1,
+      { operation: 'article', lang: safeLang, title },
     );
     if (!htmlRes.ok) {
       if (htmlRes.status === 404) {
         throw new NotFoundException(`Wikipedia article not found: ${title}`);
       }
+      this.logUnsuccessfulWikipediaResponse(htmlRes, {
+        operation: 'article',
+        lang: safeLang,
+        title,
+      });
       throw new BadGatewayException(
         `Wikipedia REST API error: ${htmlRes.status}`,
       );
     }
-    const rawHtml = await htmlRes.text();
+    const rawHtml = await this.readWikipediaText(htmlRes, {
+      operation: 'article',
+      lang: safeLang,
+      title,
+    });
     const {
       html: contentHtml,
       title: extractedTitle,
@@ -618,15 +796,21 @@ export class WikipediaService {
       format: 'json',
       origin: '*',
     });
+    const url = `${baseUrl}?${params}`;
+    const context = { operation: 'prefixSearch', lang, query, url };
 
-    const response = await this.fetchWikipedia(`${baseUrl}?${params}`);
+    const response = await this.fetchWikipedia(url, {}, 1, context);
     if (!response.ok) {
       if (response.status === 429) {
         return [];
       }
+      this.logUnsuccessfulWikipediaResponse(response, context);
       throw new BadGatewayException(`Wikipedia API error: ${response.status}`);
     }
-    const data = (await response.json()) as WikiPrefixResponse;
+    const data = await this.readWikipediaJson<WikiPrefixResponse>(
+      response,
+      context,
+    );
 
     if (!data.query?.pages) {
       return [];
@@ -675,6 +859,7 @@ export class WikipediaService {
         titles: candidate,
         prop: 'langlinks',
         lllimit: '500',
+        llprop: 'url|langname|autonym',
         format: 'json',
         origin: '*',
       });

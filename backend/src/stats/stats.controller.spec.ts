@@ -20,15 +20,34 @@ describe('StatsController', () => {
     await controller.visit(undefined);
 
     expect(statsService.incrementVisit.mock.calls).toEqual([
-      [{ newSession: false, newVisitor: false }],
+      [
+        {
+          newSession: false,
+          newVisitor: false,
+          siteHost: undefined,
+          guiLang: undefined,
+        },
+      ],
     ]);
   });
 
   it('tracks new sessions and visitors', async () => {
-    await controller.visit({ newSession: true, newVisitor: true });
+    await controller.visit({
+      newSession: true,
+      newVisitor: true,
+      siteHost: 'ki-pedia.ch',
+      guiLang: 'de',
+    });
 
     expect(statsService.incrementVisit.mock.calls).toEqual([
-      [{ newSession: true, newVisitor: true }],
+      [
+        {
+          newSession: true,
+          newVisitor: true,
+          siteHost: 'ki-pedia.ch',
+          guiLang: 'de',
+        },
+      ],
     ]);
   });
 
@@ -43,20 +62,28 @@ describe('StatsController', () => {
         simplify_cefr_b1: 9,
         simplify_cefr_b2: 10,
         simplify_cefr_c1: 11,
-        simplify_grade_1: 12,
-        simplify_grade_2: 13,
-        simplify_grade_3: 14,
         simplify_grade_4: 15,
         simplify_grade_5: 16,
         simplify_grade_6: 17,
         simplify_grade_7: 18,
         simplify_grade_8: 19,
         simplify_grade_9: 20,
+        quizzes: 35,
+        glossaries: 36,
         translations: 21,
         chats: 22,
         chat_questions: 23,
         visits: 24,
         pages: 25,
+        url_ki_pedia_ch: 26,
+        url_ki_pedia_org: 27,
+        url_wikiped_ia_ch: 28,
+        url_wikiped_ia_org: 29,
+        gui_lang_de: 30,
+        gui_lang_fr: 31,
+        gui_lang_it: 32,
+        gui_lang_rm: 33,
+        gui_lang_en: 34,
       },
     ]);
 

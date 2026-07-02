@@ -11,6 +11,7 @@ import {
   AiService,
   CEFR_LEVELS,
   GRADE_LEVELS,
+  type ChatArticleContext,
   type ChatMessage,
   type CefrLevel,
   type GradeLevel,
@@ -23,20 +24,40 @@ interface SimplifyDto {
   mode?: unknown;
   cefrLevel?: unknown;
   gradeLevel?: unknown;
+  sourceLang?: unknown;
 }
 
 interface ChatDto {
-  articleTitle: string;
-  articleContent: string;
-  message: string;
-  history: ChatMessage[];
+  articleTitle?: unknown;
+  articleContent?: unknown;
+  infoboxContent?: unknown;
+  isOriginalArticle?: unknown;
+  message?: unknown;
+  history?: unknown;
 }
 
 interface TranslateDto {
-  text: string;
-  sourceLang: string;
-  targetLang: string;
+  text?: unknown;
+  sourceLang?: unknown;
+  targetLang?: unknown;
 }
+
+interface SectionAiDto {
+  text?: unknown;
+  sourceLang?: unknown;
+  gradeLevel?: unknown;
+  sectionTitle?: unknown;
+}
+
+const MAX_ARTICLE_TITLE_LENGTH = 300;
+const MAX_ARTICLE_CONTENT_LENGTH = 1_000_000;
+const MAX_INFOBOX_CONTENT_LENGTH = 50_000;
+const MAX_TEXT_LENGTH = 1_000_000;
+const MAX_CHAT_MESSAGE_LENGTH = 4_000;
+const MAX_CHAT_HISTORY_MESSAGES = 20;
+const MAX_CHAT_HISTORY_MESSAGE_LENGTH = 4_000;
+const MAX_LANGUAGE_CODE_LENGTH = 20;
+const MAX_SECTION_TITLE_LENGTH = 200;
 
 @Controller('ai')
 export class AiController {
@@ -47,9 +68,15 @@ export class AiController {
 
   @Post('simplify')
   simplify(@Body() body: SimplifyDto) {
+    const text = this.validateRequiredString(
+      body.text,
+      'text',
+      MAX_TEXT_LENGTH,
+    );
     const variant = this.validateSimplifyBody(body);
+    const sourceLang = this.validateSourceLang(body.sourceLang);
     void this.statsService.incrementSimplify(variant);
-    return this.aiService.simplify(body.text as string, variant);
+    return this.aiService.simplify(text, variant, sourceLang);
   }
 
   @Post('simplify/stream')
@@ -58,7 +85,13 @@ export class AiController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const text = this.validateRequiredString(
+      body.text,
+      'text',
+      MAX_TEXT_LENGTH,
+    );
     const variant = this.validateSimplifyBody(body);
+    const sourceLang = this.validateSourceLang(body.sourceLang);
     void this.statsService.incrementSimplify(variant);
 
     const startedAt = Date.now();
@@ -85,8 +118,9 @@ export class AiController {
 
     try {
       await this.aiService.simplifyStream(
-        body.text as string,
+        text,
         variant,
+        sourceLang,
         (chunk) => {
           chunkCount += 1;
           writtenChars += chunk.length;
@@ -114,13 +148,12 @@ export class AiController {
 
   @Post('chat')
   chat(@Body() body: ChatDto) {
-    this.validateChatBody(body);
-    void this.statsService.incrementChat(!body.history?.length);
+    const chatRequest = this.validateChatBody(body);
+    void this.statsService.incrementChat(!chatRequest.history.length);
     return this.aiService.chat(
-      body.articleTitle,
-      body.articleContent,
-      body.message,
-      body.history ?? [],
+      chatRequest.article,
+      chatRequest.message,
+      chatRequest.history,
     );
   }
 
@@ -130,8 +163,8 @@ export class AiController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    this.validateChatBody(body);
-    void this.statsService.incrementChat(!body.history?.length);
+    const chatRequest = this.validateChatBody(body);
+    void this.statsService.incrementChat(!chatRequest.history.length);
 
     const startedAt = Date.now();
     let chunkCount = 0;
@@ -157,10 +190,9 @@ export class AiController {
 
     try {
       await this.aiService.chatStream(
-        body.articleTitle,
-        body.articleContent,
-        body.message,
-        body.history ?? [],
+        chatRequest.article,
+        chatRequest.message,
+        chatRequest.history,
         (chunk) => {
           chunkCount += 1;
           writtenChars += chunk.length;
@@ -188,12 +220,12 @@ export class AiController {
 
   @Post('translate')
   translate(@Body() body: TranslateDto) {
-    this.validateTranslateBody(body);
+    const translateRequest = this.validateTranslateBody(body);
     void this.statsService.incrementTranslation();
     return this.aiService.translate(
-      body.text,
-      body.sourceLang,
-      body.targetLang,
+      translateRequest.text,
+      translateRequest.sourceLang,
+      translateRequest.targetLang,
     );
   }
 
@@ -203,7 +235,7 @@ export class AiController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    this.validateTranslateBody(body);
+    const translateRequest = this.validateTranslateBody(body);
     void this.statsService.incrementTranslation();
 
     const startedAt = Date.now();
@@ -230,9 +262,9 @@ export class AiController {
 
     try {
       await this.aiService.translateStream(
-        body.text,
-        body.sourceLang,
-        body.targetLang,
+        translateRequest.text,
+        translateRequest.sourceLang,
+        translateRequest.targetLang,
         (chunk) => {
           chunkCount += 1;
           writtenChars += chunk.length;
@@ -258,10 +290,32 @@ export class AiController {
     }
   }
 
+  @Post('quiz')
+  quiz(@Body() body: SectionAiDto) {
+    const request = this.validateSectionAiBody(body);
+    void this.statsService.incrementQuiz();
+    return this.aiService.generateQuiz(
+      request.text,
+      request.sourceLang,
+      request.gradeLevel,
+      request.sectionTitle,
+    );
+  }
+
+  @Post('glossary')
+  glossary(@Body() body: SectionAiDto) {
+    const request = this.validateSectionAiBody(body);
+    void this.statsService.incrementGlossary();
+    return this.aiService.generateGlossary(
+      request.text,
+      request.sourceLang,
+      request.gradeLevel,
+      request.sectionTitle,
+    );
+  }
+
   private validateSimplifyBody(body: SimplifyDto): SimplifyVariant {
-    if (typeof body.text !== 'string' || !body.text.trim()) {
-      throw new BadRequestException('Field "text" is required');
-    }
+    this.validateRequiredString(body.text, 'text', MAX_TEXT_LENGTH);
     if (body.mode === 'cefr') {
       if (!this.isCefrLevel(body.cefrLevel)) {
         throw new BadRequestException(
@@ -284,6 +338,14 @@ export class AiController {
     throw new BadRequestException('Field "mode" must be one of: cefr, grade');
   }
 
+  private validateSourceLang(value: unknown): string {
+    return this.validateRequiredString(
+      value,
+      'sourceLang',
+      MAX_LANGUAGE_CODE_LENGTH,
+    ).trim();
+  }
+
   private isCefrLevel(value: unknown): value is CefrLevel {
     return (
       typeof value === 'string' &&
@@ -298,29 +360,179 @@ export class AiController {
     );
   }
 
-  private validateChatBody(body: ChatDto): void {
-    if (!body.articleTitle?.trim()) {
-      throw new BadRequestException('Field "articleTitle" is required');
-    }
-    if (!body.articleContent?.trim()) {
-      throw new BadRequestException('Field "articleContent" is required');
-    }
-    if (!body.message?.trim()) {
-      throw new BadRequestException('Field "message" is required');
-    }
+  private validateChatBody(body: ChatDto): {
+    article: ChatArticleContext;
+    message: string;
+    history: ChatMessage[];
+  } {
+    return {
+      article: {
+        title: this.validateRequiredString(
+          body.articleTitle,
+          'articleTitle',
+          MAX_ARTICLE_TITLE_LENGTH,
+        ).trim(),
+        content: this.validateRequiredString(
+          body.articleContent,
+          'articleContent',
+          MAX_ARTICLE_CONTENT_LENGTH,
+        ),
+        infoboxContent: this.validateOptionalString(
+          body.infoboxContent,
+          'infoboxContent',
+          MAX_INFOBOX_CONTENT_LENGTH,
+        ),
+        isOriginalArticle: this.validateOptionalBoolean(
+          body.isOriginalArticle,
+          'isOriginalArticle',
+          true,
+        ),
+      },
+      message: this.validateRequiredString(
+        body.message,
+        'message',
+        MAX_CHAT_MESSAGE_LENGTH,
+      ),
+      history: this.validateChatHistory(body.history),
+    };
   }
 
-  private validateTranslateBody(body: TranslateDto): void {
-    if (!body.text?.trim()) {
-      throw new BadRequestException('Field "text" is required');
+  private validateTranslateBody(body: TranslateDto): {
+    text: string;
+    sourceLang: string;
+    targetLang: string;
+  } {
+    return {
+      text: this.validateRequiredString(body.text, 'text', MAX_TEXT_LENGTH),
+      sourceLang: this.validateRequiredString(
+        body.sourceLang,
+        'sourceLang',
+        MAX_LANGUAGE_CODE_LENGTH,
+      ).trim(),
+      targetLang: this.validateRequiredString(
+        body.targetLang,
+        'targetLang',
+        MAX_LANGUAGE_CODE_LENGTH,
+      ).trim(),
+    };
+  }
+
+  private validateSectionAiBody(body: SectionAiDto): {
+    text: string;
+    sourceLang: string;
+    gradeLevel?: GradeLevel;
+    sectionTitle: string;
+  } {
+    return {
+      text: this.validateRequiredString(body.text, 'text', MAX_TEXT_LENGTH),
+      sourceLang: this.validateSourceLang(body.sourceLang),
+      gradeLevel: this.validateOptionalGradeLevel(body.gradeLevel),
+      sectionTitle: this.validateOptionalString(
+        body.sectionTitle,
+        'sectionTitle',
+        MAX_SECTION_TITLE_LENGTH,
+      ).trim(),
+    };
+  }
+
+  private validateOptionalGradeLevel(value: unknown): GradeLevel | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
     }
-    if (!body.sourceLang?.trim()) {
-      throw new BadRequestException('Field "sourceLang" is required');
-    }
-    if (!AiService.SUPPORTED_LANGS.includes(body.targetLang)) {
+    const gradeLevel = Number(value);
+    if (!this.isGradeLevel(gradeLevel)) {
       throw new BadRequestException(
-        `Field "targetLang" must be one of: ${AiService.SUPPORTED_LANGS.join(', ')}`,
+        `Field "gradeLevel" must be one of: ${GRADE_LEVELS.join(', ')}`,
       );
     }
+    return gradeLevel;
+  }
+
+  private validateChatHistory(value: unknown): ChatMessage[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+    if (!Array.isArray(value)) {
+      throw new BadRequestException('Field "history" must be an array');
+    }
+    if (value.length > MAX_CHAT_HISTORY_MESSAGES) {
+      throw new BadRequestException(
+        `Field "history" must contain at most ${MAX_CHAT_HISTORY_MESSAGES} messages`,
+      );
+    }
+    return value.map((entry, index) => {
+      if (!this.isChatMessage(entry)) {
+        throw new BadRequestException(
+          `Field "history[${index}]" must include a valid role and content`,
+        );
+      }
+      return {
+        role: entry.role,
+        content: this.validateRequiredString(
+          entry.content,
+          `history[${index}].content`,
+          MAX_CHAT_HISTORY_MESSAGE_LENGTH,
+        ),
+      };
+    });
+  }
+
+  private isChatMessage(value: unknown): value is ChatMessage {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'role' in value &&
+      'content' in value &&
+      (value.role === 'user' || value.role === 'assistant')
+    );
+  }
+
+  private validateRequiredString(
+    value: unknown,
+    fieldName: string,
+    maxLength: number,
+  ): string {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(`Field "${fieldName}" is required`);
+    }
+    if (value.length > maxLength) {
+      throw new BadRequestException(
+        `Field "${fieldName}" must be at most ${maxLength} characters`,
+      );
+    }
+    return value;
+  }
+
+  private validateOptionalString(
+    value: unknown,
+    fieldName: string,
+    maxLength: number,
+  ): string {
+    if (value === undefined || value === null) {
+      return '';
+    }
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`Field "${fieldName}" must be a string`);
+    }
+    if (value.length > maxLength) {
+      throw new BadRequestException(
+        `Field "${fieldName}" must be at most ${maxLength} characters`,
+      );
+    }
+    return value;
+  }
+
+  private validateOptionalBoolean(
+    value: unknown,
+    fieldName: string,
+    defaultValue: boolean,
+  ): boolean {
+    if (value === undefined || value === null) {
+      return defaultValue;
+    }
+    if (typeof value !== 'boolean') {
+      throw new BadRequestException(`Field "${fieldName}" must be a boolean`);
+    }
+    return value;
   }
 }

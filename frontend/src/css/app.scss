@@ -9,6 +9,70 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'Luciole';
+  src: url('/fonts/luciole/Luciole-Regular/Luciole-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Luciole';
+  src: url('/fonts/luciole/Luciole-Bold/Luciole-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Luciole';
+  src: url('/fonts/luciole/Luciole-Italic/Luciole-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Luciole';
+  src: url('/fonts/luciole/Luciole-BoldItalic/Luciole-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/opendyslexic/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/opendyslexic/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/opendyslexic/OpenDyslexic-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/opendyslexic/OpenDyslexic-BoldItalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 //////////////////////////////////////////////////////////////////////////////////
 // Layout
 //////////////////////////////////////////////////////////////////////////////////
@@ -16,6 +80,7 @@
 
 // CSS Custom Properties for gradient theming
 :root {
+  --kp-font-family: 'Inter', sans-serif;
   --kp-gradient-start: #f0e8f7; // very light violet
   --kp-gradient-mid: #e8edf8; // light blue-grey
   --kp-gradient-end: #f5f7fa; // near-white blue
@@ -32,6 +97,7 @@
   --kp-gradient-start: #1a1225; // dark violet
   --kp-gradient-mid: #141320; // dark blue-violet
   --kp-gradient-end: #121212; // near-black
+  --q-primary: #9a78c8; // slightly brighter primary for better dark mode readability
   --kp-surface: #1d1d1d;
   --kp-surface-elevated: #242424;
   --kp-shadow-color: rgba(0, 0, 0, 0.3);
@@ -53,10 +119,18 @@ html {
   &.font-size-x-large {
     font-size: 20px;
   }
+
+  &.font-family-luciole {
+    --kp-font-family: 'Luciole', 'Inter', sans-serif;
+  }
+
+  &.font-family-open-dyslexic {
+    --kp-font-family: 'OpenDyslexic', 'Inter', sans-serif;
+  }
 }
 body {
   font-size: 1rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--kp-font-family);
   font-weight: normal;
   font-feature-settings:
     'kern' 1,

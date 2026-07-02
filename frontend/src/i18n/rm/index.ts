@@ -8,13 +8,31 @@ export default {
   header: {
     languageTooltip: 'Tscherner la lingua',
     fontSizeTooltip: 'Midar la grondezza dal text',
+    fontTooltip: 'Adattar la scrittira',
     darkModeTooltip: 'Activar il modus stgir',
     lightModeTooltip: 'Activar il modus cler',
   },
   footer: {
-    about: 'Davart questa pagina',
     imprint: 'Impressum',
     privacy: 'Protecziun da datas',
+  },
+  homeButtons: {
+    whatIs: 'Tge è {brandName}?',
+    inClass: '{brandName} en l’instrucziun',
+  },
+  education: {
+    title: '{brandName} en l’instrucziun',
+    lead:
+      '{brandName} gida persunas d’instrucziun e scolaras/scolars ad utilisar cuntegns da Wikipedia en moda simpla e basada sin funtaunas.',
+    forTeachersTitle: 'Per persunas d’instrucziun',
+    forTeachersBody:
+      'Cun {brandName} pudais Vus adattar artitgels cumplexs da Wikipedia al nivel da lectura adattà e duvrar els per incumbensas en classa.',
+    inClassTitle: 'Applicaziun en classa',
+    inClassBody:
+      'Scolaras e scolars pon leger, simplifitgar e far dumondas directamain davart il cuntegn da l’artitgel, cun mantegnair il connex cun la funtauna originala.',
+    learningGoalsTitle: 'Finamiras d’emprender',
+    learningGoalsBody:
+      'Lavurar cun Wikipedia rinforza la cumpetenza da medias, la chapientscha da texts ed il pensar critic envers respostas generadas da l’IA.',
   },
   imprint: {
     eyebrow: 'Indicaziuns legalas',
@@ -48,6 +66,8 @@ export default {
     readingLevel: 'Simplifitgar il text',
     readingLevelLabel: 'Stgalim da lectura',
     articleLangLabel: "Lingua da l'artitgel",
+    languageSubtitle: 'Lingua da l’artitgel: {lang}',
+    translatedSubtitle: 'Translatà da {sourceLang} en {targetLang}',
     cefrLevel: 'GER / CEFR',
     schoolGrade: 'Stgalim da scola',
     simplify: {
@@ -85,6 +105,27 @@ export default {
     grade: {
       levelLabel: '{grade}. classa',
     },
+    section: {
+      copy: 'Copiar la part',
+      copySuccess: 'Part copiada en il clipboard',
+      copyError: 'Impussibel da copiar la part',
+    },
+    quiz: {
+      action: 'Quiz',
+      title: 'Quiz',
+      progress: 'Dumonda {current} da {total}',
+      checkAnswer: 'Controllar la resposta',
+      nextQuestion: 'Proxima dumonda',
+      showResult: 'Mussar il resultat',
+      correct: 'Endretg',
+      incorrect: 'Betg anc endretg',
+      resultTitle: 'Tes resultat',
+      stars: '{score} da {total} stailas',
+    },
+    glossary: {
+      action: 'Terms impurtants',
+      title: 'Terms impurtants',
+    },
     levels: {
       original: 'Original',
       high: 'Auta',
@@ -106,6 +147,15 @@ export default {
       large: 'Pli grond',
       xLarge: 'Anc pli grond',
     },
+    fontFamily: {
+      standard: 'Standard',
+      luciole: 'Luciole',
+      openDyslexic: 'Open Dyslexic',
+    },
+    fontMenu: {
+      size: 'Grondezza dal text',
+      family: 'Tip da scrittira',
+    },
     error: "Impussibel da chargiar l'artitgel.",
     print: 'Stampar',
     copyToClipboard: 'Copiar en il clipboard',
@@ -115,9 +165,24 @@ export default {
     wordError: 'Export Word betg reussì',
     availableLanguagesLink1: '{count} lingua',
     availableLanguagesLinkN: '{count} linguas',
+    languageDialogTitle: 'Autras linguas da Wikipedia',
+    languageDialogIntro:
+      'Wikipedia exista en fitg bleras linguas. Mintga versiun linguistica vegn scritta independentamain; perquai po il medem tema vegnir descrit cun auters detagls, auters accents u in’autra perspectiva.',
+    languageDialogExample:
+      'Per exempel po in artitgel davart ina vischnanca svizra cuntegnair blers detagls locals en la Wikipedia tudestga, entant che la versiun englaisa declera l’emprim pli cleramain nua che quest lieu sa chatta.',
+    languageDialogListIntro: 'Guarda l’artitgel davart {title} en in’autra Wikipedia.',
     languagesSuggested: 'Linguas proponidas',
     languagesWorldwide: 'Globalmain',
+    languageNoticeTitle: 'Lingua d’affichar midada',
+    languageNoticeDisplayLanguage: 'La lingua d’affichar da la pagina è vegnida midada en {lang}.',
+    languageNoticeArticleLanguage:
+      'L’artitgel da Wikipedia resta dentant visibel en {lang} e deriva vinavant da la Wikipedia en questa lingua.',
+    languageNoticeSearchAgain:
+      'Wikipedia exista en bleras linguas differentas. Tschertga ussa anc ina giada l’artitgel, per che l’artitgel vegnia chargià da la Wikipedia da la lingua actuala.',
+    languageNoticeOk: 'Chapì',
+    languageNoticeSearchButton: 'Tschertgar anc ina giada',
     translateTo: 'Translatar en {lang}',
+    close: 'Serrar',
   },
   languages: {
     de: 'Tudestg',
@@ -193,6 +258,12 @@ export default {
     placeholder: 'Fa ina dumonda davart quest artitgel…',
     send: 'Trametter',
     stop: 'Interrumper la resposta',
+    clearHistory: 'Stizzar l’istorgia dal chat',
+    copyAnswer: 'Copiar en il clipboard',
+    copySuccess: 'Resposta copiada en il clipboard',
+    copyError: 'Copia en il clipboard betg reussida',
+    expand: 'Engrondir la fanestra da chat',
+    collapse: 'Empitschnir la fanestra da chat',
     you: 'Ti',
     assistant: 'ki-pedia',
   },
