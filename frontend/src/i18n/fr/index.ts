@@ -1,9 +1,9 @@
 export default {
   failed: 'Action échouée',
-  success: "L'action a réussi",
+  success: "Action réussie",
   app: {
     name: 'ki-pedia',
-    tagline: 'Wikipédia – simple et clair',
+    tagline: 'Wikipédia, simplement',
   },
   header: {
     languageTooltip: 'Choisir la langue',
@@ -44,7 +44,7 @@ export default {
       addressLine2: '8008 Zurich',
       addressLine3: 'Suisse',
       contact: 'Contactez-nous :',
-      contactLinkLabel: 'possibilités de contact',
+      contactLinkLabel: 'moyens de contact',
     },
     liability: {
       title: 'Clause de non-responsabilité',
@@ -57,7 +57,7 @@ export default {
     button: 'Rechercher',
     noResults: 'Aucun résultat trouvé pour « {query} ».',
     results: 'Résultats pour « {query} »',
-    readMore: "Lire l'article",
+    readMore: "Lire l’article",
   },
   article: {
     sourceLink: 'Voir sur Wikipédia',
@@ -65,6 +65,7 @@ export default {
     langLabelEnd: '.',
     readingLevel: 'Simplifier le texte',
     readingLevelLabel: 'Niveau de lecture',
+    articleLangLabel: "Langue de l’article",
     articleLangLabel: "Langue de l'article",
     languageSubtitle: 'Langue de l’article : {lang}',
     translatedSubtitle: 'Traduit de {sourceLang} vers {targetLang}',
@@ -74,7 +75,7 @@ export default {
       title: 'Simplifier le texte',
       byGrade: {
         subtitle: 'Par niveau scolaire',
-        description: 'La longueur du texte et la langue sont adaptées, 3 niveaux par classe',
+        description: 'La longueur du texte et le vocabulaire sont adaptées ; 3 niveaux disponibles par classe',
       },
       byCefr: {
         subtitle: 'Par niveau de langue',
@@ -82,13 +83,13 @@ export default {
         a1: 'A1',
         a1Tooltip: 'Débutant',
         a2: 'A2',
-        a2Tooltip: 'Notions de base',
+        a2Tooltip: 'Élémentaire',
         b1: 'B1',
-        b1Tooltip: 'Niveau intermédiaire',
+        b1Tooltip: 'Niveau seuil',
         b2: 'B2',
-        b2Tooltip: 'Utilisation indépendante',
+        b2Tooltip: 'Indépendant',
         c1: 'C1',
-        c1Tooltip: 'Avancé',
+        c1Tooltip: 'Autonome',
         original: 'Original',
       },
     },
@@ -103,7 +104,7 @@ export default {
       },
     },
     grade: {
-      levelLabel: '{grade}e classe',
+      levelLabel: '{grade}ᵉ année',
     },
     section: {
       copy: 'Copier la section',
@@ -133,7 +134,7 @@ export default {
       low: 'Faible',
       minimal: 'Minimale',
     },
-    loading: "Chargement de l'article…",
+    loading: "Chargement de l’article…",
     simplifying: 'Simplification du texte…',
     cancelSimplify: 'Arrêter la simplification',
     simplifyCancelledByUser: '... (Interruption par l\'utilisateur)',
@@ -147,6 +148,7 @@ export default {
       large: 'Plus grand',
       xLarge: 'Encore plus grand',
     },
+    error: "Impossible de charger l’article.",
     fontFamily: {
       standard: 'Standard',
       luciole: 'Luciole',
@@ -159,10 +161,10 @@ export default {
     error: "Impossible de charger l'article.",
     print: 'Imprimer',
     copyToClipboard: 'Copier dans le presse-papiers',
-    saveAsWord: 'Enregistrer en Word',
+    saveAsWord: 'Enregistrer au format Word',
     copySuccess: 'Article copié dans le presse-papiers',
     copyError: 'Échec de la copie dans le presse-papiers',
-    wordError: 'Échec de l’export Word',
+    wordError: 'Échec de l’exportation au format Word',
     availableLanguagesLink1: '{count} langue',
     availableLanguagesLinkN: '{count} langues',
     languageDialogTitle: 'Autres langues de Wikipédia',
