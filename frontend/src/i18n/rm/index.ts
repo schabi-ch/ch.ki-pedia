@@ -34,24 +34,6 @@ export default {
     learningGoalsBody:
       'Lavurar cun Wikipedia rinforza la cumpetenza da medias, la chapientscha da texts ed il pensar critic envers respostas generadas da l’IA.',
   },
-  imprint: {
-    eyebrow: 'Indicaziuns legalas',
-    title: 'Impressum',
-    responsible: {
-      title: 'Responsabel per il cuntegn',
-      organization: 'Wikimedia CH',
-      addressLine1: 'Chascha postala',
-      addressLine2: '8008 Turitg',
-      addressLine3: 'Svizra',
-      contact: 'Contactai nus:',
-      contactLinkLabel: 'pussaivladads da contact',
-    },
-    liability: {
-      title: 'Avis da responsabladad',
-      body:
-        'Malgrà ina controlla conscienziusa dal cuntegn na vegn surpigliada nagina garanzia per l’actualitad permanenta, la correctadad e la cumplettadad da las novitads messas a disposiziun.',
-    },
-  },
   search: {
     placeholder: 'Tschertgar in artitgel...',
     button: 'Tschertgar',
@@ -105,6 +87,11 @@ export default {
     },
     grade: {
       levelLabel: '{grade}. classa',
+      levels: {
+        5: '5./6. classa',
+        7: '7./8. classa',
+        9: '9./10. classa',
+      },
     },
     section: {
       copy: 'Copiar la part',

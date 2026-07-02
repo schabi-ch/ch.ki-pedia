@@ -34,24 +34,6 @@ export default {
     learningGoalsBody:
       'Lavorare con Wikipedia rafforza l’educazione ai media, la comprensione del testo e il pensiero critico verso risposte generate dall’IA.',
   },
-  imprint: {
-    eyebrow: 'Informazioni legali',
-    title: 'Note legali',
-    responsible: {
-      title: 'Responsabile dei contenuti',
-      organization: 'Wikimedia CH',
-      addressLine1: 'Casella postale',
-      addressLine2: '8008 Zurigo',
-      addressLine3: 'Svizzera',
-      contact: 'Contattaci:',
-      contactLinkLabel: 'possibilità di contatto',
-    },
-    liability: {
-      title: 'Esclusione di responsabilità',
-      body:
-        'Nonostante l’attento controllo dei contenuti, non viene fornita alcuna garanzia in merito al costante aggiornamento, alla correttezza e alla completezza delle informazioni messe a disposizione.',
-    },
-  },
   search: {
     placeholder: 'Cerca un articolo...',
     button: 'Cerca',
@@ -105,6 +87,11 @@ export default {
     },
     grade: {
       levelLabel: '{grade}. classe',
+      levels: {
+        5: '5./6. classe',
+        7: '7./8. classe',
+        9: '9./10. classe',
+      },
     },
     section: {
       copy: 'Copia sezione',

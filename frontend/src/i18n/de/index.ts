@@ -34,24 +34,6 @@ export default {
     learningGoalsBody:
       'Die Arbeit mit Wikipedia fördert Medienkompetenz, Textverständnis und den kritischen Umgang mit KI-generierten Antworten.',
   },
-  imprint: {
-    eyebrow: 'Rechtliches',
-    title: 'Impressum',
-    responsible: {
-      title: 'Verantwortlich für den Inhalt',
-      organization: 'Wikimedia CH',
-      addressLine1: 'Postfach',
-      addressLine2: '8008 Zürich',
-      addressLine3: 'Schweiz',
-      contact: 'Kontaktieren Sie uns:',
-      contactLinkLabel: 'Kontaktmöglichkeiten',
-    },
-    liability: {
-      title: 'Haftungshinweis',
-      body:
-        'Trotz sorgfältiger inhaltlicher Kontrolle wird keine Gewähr für die laufende Aktualität, Richtigkeit und Vollständigkeit der bereitgestellten Informationen übernommen.',
-    },
-  },
   search: {
     placeholder: 'Artikel suchen...',
     button: 'Suchen',
@@ -105,6 +87,11 @@ export default {
     },
     grade: {
       levelLabel: '{grade}. Klasse',
+      levels: {
+        5: '5./6. Klasse',
+        7: '7./8. Klasse',
+        9: '9./10. Klasse',
+      },
     },
     section: {
       copy: 'Abschnitt kopieren',

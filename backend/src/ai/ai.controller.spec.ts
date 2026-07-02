@@ -66,11 +66,11 @@ describe('AiController statistics instrumentation', () => {
       text: 'Complex',
       sourceLang: 'de',
       mode: 'grade',
-      gradeLevel: 6,
+      gradeLevel: 7,
     });
 
     expect(statsService.incrementSimplify.mock.calls).toEqual([
-      [{ mode: 'grade', gradeLevel: 6 }],
+      [{ mode: 'grade', gradeLevel: 7 }],
     ]);
   });
 
@@ -81,7 +81,7 @@ describe('AiController statistics instrumentation', () => {
       text: longText,
       sourceLang: 'de',
       mode: 'grade',
-      gradeLevel: 6,
+      gradeLevel: 7,
     });
 
     expect(aiService.simplify.mock.calls[0][0]).toHaveLength(250_000);
@@ -113,6 +113,30 @@ describe('AiController statistics instrumentation', () => {
         sourceLang: 'de',
         mode: 'grade',
         gradeLevel: 3,
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      controller.simplify({
+        text: 'Complex',
+        sourceLang: 'de',
+        mode: 'grade',
+        gradeLevel: 4,
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      controller.simplify({
+        text: 'Complex',
+        sourceLang: 'de',
+        mode: 'grade',
+        gradeLevel: 6,
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      controller.simplify({
+        text: 'Complex',
+        sourceLang: 'de',
+        mode: 'grade',
+        gradeLevel: 8,
       }),
     ).toThrow(BadRequestException);
     expect(() =>
@@ -281,14 +305,14 @@ describe('AiController statistics instrumentation', () => {
     await controller.quiz({
       text: '## Level 1\n\nEin einfacher Text.',
       sourceLang: ' de ',
-      gradeLevel: 6,
+      gradeLevel: 7,
       sectionTitle: 'Level 1',
     });
 
     expect(aiService.generateQuiz.mock.calls[0]).toEqual([
       '## Level 1\n\nEin einfacher Text.',
       'de',
-      6,
+      7,
       'Level 1',
     ]);
     expect(statsService.incrementQuiz.mock.calls).toHaveLength(1);
@@ -311,13 +335,13 @@ describe('AiController statistics instrumentation', () => {
 
   it('rejects invalid quiz requests', () => {
     expect(() =>
-      controller.quiz({ text: '', sourceLang: 'de', gradeLevel: 6 }),
+      controller.quiz({ text: '', sourceLang: 'de', gradeLevel: 7 }),
     ).toThrow(BadRequestException);
     expect(() =>
       controller.quiz({ text: 'Text', sourceLang: 'de', gradeLevel: 3 }),
     ).toThrow(BadRequestException);
     expect(() =>
-      controller.quiz({ text: 'Text', sourceLang: '', gradeLevel: 6 }),
+      controller.quiz({ text: 'Text', sourceLang: '', gradeLevel: 7 }),
     ).toThrow(BadRequestException);
     expect(aiService.generateQuiz.mock.calls).toHaveLength(0);
     expect(statsService.incrementQuiz.mock.calls).toHaveLength(0);

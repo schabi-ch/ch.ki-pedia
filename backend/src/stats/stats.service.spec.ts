@@ -91,11 +91,8 @@ describe('StatsService', () => {
     [{ mode: 'cefr', cefrLevel: 'b1' }, 'simplify_cefr_b1'],
     [{ mode: 'cefr', cefrLevel: 'b2' }, 'simplify_cefr_b2'],
     [{ mode: 'cefr', cefrLevel: 'c1' }, 'simplify_cefr_c1'],
-    [{ mode: 'grade', gradeLevel: 4 }, 'simplify_grade_4'],
     [{ mode: 'grade', gradeLevel: 5 }, 'simplify_grade_5'],
-    [{ mode: 'grade', gradeLevel: 6 }, 'simplify_grade_6'],
     [{ mode: 'grade', gradeLevel: 7 }, 'simplify_grade_7'],
-    [{ mode: 'grade', gradeLevel: 8 }, 'simplify_grade_8'],
     [{ mode: 'grade', gradeLevel: 9 }, 'simplify_grade_9'],
   ] as const)('maps simplify variant %j to %s', async (variant, column) => {
     const service = await createEnabledService();

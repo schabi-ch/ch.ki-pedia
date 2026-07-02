@@ -201,19 +201,19 @@ describe('AiService', () => {
     await expect(
       service.simplify(
         'Komplexer Artikel',
-        { mode: 'grade', gradeLevel: 6 },
+        { mode: 'grade', gradeLevel: 7 },
         'de',
       ),
     ).resolves.toEqual({ simplified: 'Zusammenfassung' });
 
     const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
-    expect(body.system).toContain('Swiss grade 6');
-    expect(body.system).toContain('11-12 years old');
+    expect(body.system).toContain('Swiss grades 7/8');
+    expect(body.system).toContain('12-14 years old');
     expect(body.system).toContain('## Level 1 - einfacher');
     expect(body.system).toContain('## Level 2 - mittel');
     expect(body.system).toContain('## Level 3 - vertieft');
-    expect(body.system).toContain('approximately 250-350 words');
-    expect(body.system).toContain('approximately 500-600 words');
+    expect(body.system).toContain('approximately 350-450 words');
+    expect(body.system).toContain('approximately 700-850 words');
   });
 
   it('uses French grade summary headings for French source text', async () => {
@@ -232,7 +232,7 @@ describe('AiService', () => {
     await expect(
       service.simplify(
         'Article complexe',
-        { mode: 'grade', gradeLevel: 6 },
+        { mode: 'grade', gradeLevel: 7 },
         'fr',
       ),
     ).resolves.toEqual({ simplified: 'Resume' });
@@ -356,12 +356,13 @@ describe('AiService', () => {
     );
 
     await expect(
-      service.generateQuiz('## Level 1\n\nDie Erde ist ein Planet.', 'de', 6, 'Level 1'),
+      service.generateQuiz('## Level 1\n\nDie Erde ist ein Planet.', 'de', 7, 'Level 1'),
     ).resolves.toEqual(quizResponse);
 
     const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
     expect(body.max_tokens).toBe(4096);
     expect(body.system).toContain('reading-comprehension');
+    expect(body.system).toContain('Swiss grades 7/8 students');
     expect(body.system).toContain('Security rules:');
     expect(body.system).toContain('same language as the section text');
     expect(body.system).toContain('One or more answers may be correct');
@@ -370,7 +371,7 @@ describe('AiService', () => {
       '<untrusted-data name="SECTION_CONTEXT">',
     );
     expect(body.messages[0].content[0].text).toContain('Die Erde ist ein Planet');
-    expect(body.messages[0].content[0].text).toContain('"gradeLevel": 6');
+    expect(body.messages[0].content[0].text).toContain('"gradeLevel": 7');
   });
 
   it('generates glossary terms from structured Anthropic JSON', async () => {
@@ -431,7 +432,7 @@ describe('AiService', () => {
       }),
     );
 
-    await expect(service.generateQuiz('Text', 'de', 6)).rejects.toThrow(
+    await expect(service.generateQuiz('Text', 'de', 7)).rejects.toThrow(
       'AI quiz response did not match the expected schema',
     );
   });

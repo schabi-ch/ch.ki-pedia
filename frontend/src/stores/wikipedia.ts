@@ -115,7 +115,8 @@ export interface Article {
 
 export type CefrLevel = 'a1' | 'a2' | 'b1' | 'b2' | 'c1';
 export type CefrSliderLevel = 'original' | CefrLevel;
-export type GradeLevel = 4 | 5 | 6 | 7 | 8 | 9;
+export const GRADE_LEVELS = [5, 7, 9] as const;
+export type GradeLevel = (typeof GRADE_LEVELS)[number];
 export type SimplifyMode = 'cefr' | 'grade';
 export type ArticleVariant =
   | 'original'
@@ -203,7 +204,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const activeVariant = ref<ArticleVariant>('original');
   const activeSimplifyMode = ref<SimplifyMode>('cefr');
   const cefrLevel = ref<CefrSliderLevel>('original');
-  const gradeLevel = ref<GradeLevel>(6);
+  const gradeLevel = ref<GradeLevel>(7);
   const articleLang = ref(getWikiLang());
   const articleLoading = ref(false);
   const simplifyLoading = ref(false);
@@ -944,7 +945,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   function getActiveGradeLevel(): GradeLevel | undefined {
     if (!activeVariant.value.startsWith('grade:')) return undefined;
     const parsed = Number(activeVariant.value.slice('grade:'.length));
-    if (parsed < 4 || parsed > 9) return undefined;
+    if (!(GRADE_LEVELS as readonly number[]).includes(parsed)) return undefined;
     return parsed as GradeLevel;
   }
 

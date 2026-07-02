@@ -145,7 +145,7 @@ export default defineComponent({
     const store = useWikipediaStore();
     const { locale } = useI18n({ useScope: 'global' });
     const branding = resolveCurrentBranding();
-    const brandName = branding.isKiPediaBrand ? 'ki-pedia' : 'wikiped-ia';
+    const brandName = 'ki-pedia'; //branding.isKiPediaBrand ? 'ki-pedia' : 'wikiped-ia';
     const showRomanshNotice = computed(() => locale.value === 'rm');
     const {
       suggestions,
@@ -231,32 +231,6 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-.preview-banner {
-  background: #fff3cd;
-  border-bottom: 2px solid #f0a500;
-  color: #7a4f00;
-  font-size: 0.85rem;
-  padding: 6px 16px;
-}
-
-.body--dark .preview-banner {
-  background: #3a2e00;
-  border-bottom-color: #f0a500;
-  color: #ffd966;
-}
-
-.preview-banner-text {
-  line-height: 1.4;
-}
-
-.preview-banner-text p {
-  margin: 0 0 6px;
-}
-
-.preview-banner-text p:last-child {
-  margin-bottom: 0;
-}
-
 .romansh-notice-banner {
   margin-top: 8px;
 }

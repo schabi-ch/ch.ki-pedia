@@ -219,12 +219,12 @@
               <div class="level-panel-subtitle">{{ $t('article.simplify.byGrade.subtitle') }}</div>
               <div class="level-panel-description">{{ $t('article.simplify.byGrade.description') }}</div>
               <div class="grade-button-grid">
-                <q-btn v-for="grade in [4, 5, 6, 7, 8, 9]" :key="grade"
-                  :color="store.activeVariant === `grade:${grade}` ? 'primary' : 'primary'"
-                  :outline="store.activeVariant !== `grade:${grade}`"
-                  :unelevated="store.activeVariant === `grade:${grade}`" rounded dense no-caps size="sm"
-                  class="grade-btn" :label="$t('article.grade.levelLabel', { grade })"
-                  @click="onGradeButtonClick(grade)" />
+                <q-btn v-for="grade in gradeOptions" :key="grade.level"
+                  :color="store.activeVariant === `grade:${grade.level}` ? 'primary' : 'primary'"
+                  :outline="store.activeVariant !== `grade:${grade.level}`"
+                  :unelevated="store.activeVariant === `grade:${grade.level}`" rounded dense no-caps size="sm"
+                  class="grade-btn" :label="grade.label"
+                  @click="onGradeButtonClick(grade.level)" />
               </div>
             </div>
 
@@ -266,7 +266,7 @@
 <script lang="ts">
 import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { GRADE_LEVELS, useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
@@ -278,6 +278,10 @@ import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-se
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 const ARTICLE_HISTORY_STATE_KEY = 'ki-pedia.article-view';
+
+function gradeLevelLabelKey (grade: GradeLevel): string {
+  return `article.grade.levels.${grade}`;
+}
 
 interface ArticleHistoryState {
   key: typeof ARTICLE_HISTORY_STATE_KEY;
@@ -364,6 +368,10 @@ export default defineComponent({
       return splitGradeSections(store.displayedContent);
     });
     const showGradeSections = computed(() => gradeSections.value.length === 3);
+    const gradeOptions = computed(() => GRADE_LEVELS.map((level) => ({
+      level,
+      label: t(gradeLevelLabelKey(level)),
+    })));
     const activeQuizQuestions = computed(() => {
       if (!activeQuizSectionKey.value) return [];
       return store.sectionQuizzes[activeQuizSectionKey.value]?.questions ?? [];
@@ -378,8 +386,8 @@ export default defineComponent({
       }
 
       const grade = Number(store.activeVariant.slice('grade:'.length));
-      if (!Number.isFinite(grade)) return title;
-      return `${title} (${t('article.grade.levelLabel', { grade })})`;
+      if (!(GRADE_LEVELS as readonly number[]).includes(grade)) return title;
+      return `${title} (${t(gradeLevelLabelKey(grade as GradeLevel))})`;
     });
 
     const articleLanguageLabel = (code: string): string => {
@@ -770,6 +778,7 @@ export default defineComponent({
       onSaveAsWord,
       gradeSections,
       showGradeSections,
+      gradeOptions,
       sectionKey,
       onCopySection,
       onLoadSectionGlossary,
@@ -943,7 +952,7 @@ export default defineComponent({
     },
 
     async onGradeButtonClick (grade: number) {
-      if (grade < 4 || grade > 9) return;
+      if (!(GRADE_LEVELS as readonly number[]).includes(grade)) return;
       const nextVariant = `grade:${grade}`;
       const finishHistoryEntry = nextVariant === this.store.activeVariant
         ? () => undefined

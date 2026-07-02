@@ -34,24 +34,6 @@ export default {
     learningGoalsBody:
       'Working with Wikipedia supports media literacy, reading comprehension and critical thinking about AI-generated answers.',
   },
-  imprint: {
-    eyebrow: 'Legal',
-    title: 'Imprint',
-    responsible: {
-      title: 'Responsible for the content',
-      organization: 'Wikimedia CH',
-      addressLine1: 'P.O. Box',
-      addressLine2: '8008 Zurich',
-      addressLine3: 'Switzerland',
-      contact: 'Contact us:',
-      contactLinkLabel: 'contact options',
-    },
-    liability: {
-      title: 'Disclaimer',
-      body:
-        'Despite careful content review, no guarantee is given for the ongoing timeliness, accuracy and completeness of the information provided.',
-    },
-  },
   search: {
     placeholder: 'Search article...',
     button: 'Search',
@@ -105,6 +87,11 @@ export default {
     },
     grade: {
       levelLabel: 'Grade {grade}',
+      levels: {
+        5: 'Grades 5/6',
+        7: 'Grades 7/8',
+        9: 'Grades 9/10',
+      },
     },
     section: {
       copy: 'Copy section',

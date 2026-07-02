@@ -85,11 +85,15 @@ const CEFR_SIMPLIFY_COLUMNS: Record<CefrLevel, StatsColumn> = {
 };
 
 const GRADE_SIMPLIFY_COLUMNS: Record<GradeLevel, StatsColumn> = {
-  4: 'simplify_grade_4',
+  // Previous active mappings:
+  // 4: 'simplify_grade_4',
+  // 5: 'simplify_grade_5',
+  // 6: 'simplify_grade_6',
+  // 7: 'simplify_grade_7',
+  // 8: 'simplify_grade_8',
+  // 9: 'simplify_grade_9',
   5: 'simplify_grade_5',
-  6: 'simplify_grade_6',
   7: 'simplify_grade_7',
-  8: 'simplify_grade_8',
   9: 'simplify_grade_9',
 };
 
