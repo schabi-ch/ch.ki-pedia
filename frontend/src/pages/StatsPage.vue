@@ -28,7 +28,15 @@
         :columns="tableColumns" row-key="id" :loading="loading" :pagination="pagination" binary-state-sort hide-bottom>
         <template #body-cell-metric="props">
           <q-td :props="props" :class="{ 'metric-section': props.row.isSection }">
-            {{ props.row.metric }}
+            <span class="metric-cell-content">
+              <span>{{ props.row.metric }}</span>
+              <q-icon v-if="props.row.info" name="info" size="16px" class="metric-info-icon" tabindex="0"
+                aria-label="Metric information">
+                <q-tooltip anchor="center right" self="center left" max-width="260px">
+                  {{ props.row.info }}
+                </q-tooltip>
+              </q-icon>
+            </span>
           </q-td>
         </template>
         <template #top-right>
@@ -91,6 +99,7 @@ interface MetricValueDefinition {
   type: 'metric';
   key: StatsMetricKey;
   label: string;
+  info: string;
 }
 
 type MetricDefinition = MetricSectionDefinition | MetricValueDefinition;
@@ -99,45 +108,46 @@ interface MetricRow {
   id: string;
   metric: string;
   isSection: boolean;
+  info?: string;
   [monthPrimary: string]: string | number | boolean;
 }
 
 const metricDefinitions: MetricDefinition[] = [
-  { type: 'metric', key: 'visits', label: 'Visits' },
-  { type: 'metric', key: 'visitors', label: 'Visitors' },
-  { type: 'metric', key: 'pages', label: 'Pages' },
-  { type: 'metric', key: 'article_views', label: 'Articles' },
-  { type: 'metric', key: 'translations', label: 'Translations' },
-  { type: 'metric', key: 'quizzes', label: 'Quizzes' },
-  { type: 'metric', key: 'glossaries', label: 'Glossaries' },
-  { type: 'metric', key: 'chats', label: 'Chats' },
-  { type: 'metric', key: 'chat_questions', label: 'Questions' },
+  { type: 'metric', key: 'visits', label: 'Visits', info: 'New browser sessions that loaded ki-pedia during the month.' },
+  { type: 'metric', key: 'visitors', label: 'Visitors', info: 'Unique returning-or-new browsers counted once per day during the month.' },
+  { type: 'metric', key: 'pages', label: 'Pages', info: 'All tracked page views, including route changes inside the app.' },
+  { type: 'metric', key: 'article_views', label: 'Articles', info: 'Successful Wikipedia article loads served by the backend.' },
+  { type: 'metric', key: 'translations', label: 'Translations', info: 'Article translation requests completed through the AI backend.' },
+  { type: 'metric', key: 'quizzes', label: 'Quizzes', info: 'Section quiz generation requests sent to the AI backend.' },
+  { type: 'metric', key: 'glossaries', label: 'Glossaries', info: 'Section glossary generation requests sent to the AI backend.' },
+  { type: 'metric', key: 'chats', label: 'Chats', info: 'Chat conversations started with the first question in a session.' },
+  { type: 'metric', key: 'chat_questions', label: 'Questions', info: 'Individual questions submitted to the article chat.' },
 
   { type: 'section', label: 'Simplifications' },
-  { type: 'metric', key: 'simplify_grade_4', label: 'Grade 4' },
-  { type: 'metric', key: 'simplify_grade_5', label: 'Grade 5' },
-  { type: 'metric', key: 'simplify_grade_6', label: 'Grade 6' },
-  { type: 'metric', key: 'simplify_grade_7', label: 'Grade 7' },
-  { type: 'metric', key: 'simplify_grade_8', label: 'Grade 8' },
-  { type: 'metric', key: 'simplify_grade_9', label: 'Grade 9' },
-  { type: 'metric', key: 'simplify_cefr_a1', label: 'CEFR A1' },
-  { type: 'metric', key: 'simplify_cefr_a2', label: 'CEFR A2' },
-  { type: 'metric', key: 'simplify_cefr_b1', label: 'CEFR B1' },
-  { type: 'metric', key: 'simplify_cefr_b2', label: 'CEFR B2' },
-  { type: 'metric', key: 'simplify_cefr_c1', label: 'CEFR C1' },
+  { type: 'metric', key: 'simplify_grade_4', label: 'Grade 4', info: 'Simplification requests targeting Swiss grade 4 reading level.' },
+  { type: 'metric', key: 'simplify_grade_5', label: 'Grade 5', info: 'Simplification requests targeting Swiss grade 5 reading level.' },
+  { type: 'metric', key: 'simplify_grade_6', label: 'Grade 6', info: 'Simplification requests targeting Swiss grade 6 reading level.' },
+  { type: 'metric', key: 'simplify_grade_7', label: 'Grade 7', info: 'Simplification requests targeting Swiss grade 7 reading level.' },
+  { type: 'metric', key: 'simplify_grade_8', label: 'Grade 8', info: 'Simplification requests targeting Swiss grade 8 reading level.' },
+  { type: 'metric', key: 'simplify_grade_9', label: 'Grade 9', info: 'Simplification requests targeting Swiss grade 9 reading level.' },
+  { type: 'metric', key: 'simplify_cefr_a1', label: 'CEFR A1', info: 'Simplification requests targeting CEFR A1 language level.' },
+  { type: 'metric', key: 'simplify_cefr_a2', label: 'CEFR A2', info: 'Simplification requests targeting CEFR A2 language level.' },
+  { type: 'metric', key: 'simplify_cefr_b1', label: 'CEFR B1', info: 'Simplification requests targeting CEFR B1 language level.' },
+  { type: 'metric', key: 'simplify_cefr_b2', label: 'CEFR B2', info: 'Simplification requests targeting CEFR B2 language level.' },
+  { type: 'metric', key: 'simplify_cefr_c1', label: 'CEFR C1', info: 'Simplification requests targeting CEFR C1 language level.' },
 
   { type: 'section', label: 'URLs' },
-  { type: 'metric', key: 'url_ki_pedia_ch', label: 'ki-pedia.ch' },
-  { type: 'metric', key: 'url_ki_pedia_org', label: 'ki-pedia.org' },
-  { type: 'metric', key: 'url_wikiped_ia_ch', label: 'wikiped-ia.ch' },
-  { type: 'metric', key: 'url_wikiped_ia_org', label: 'wikiped-ia.org' },
+  { type: 'metric', key: 'url_ki_pedia_ch', label: 'ki-pedia.ch', info: 'New sessions started on the ki-pedia.ch host.' },
+  { type: 'metric', key: 'url_ki_pedia_org', label: 'ki-pedia.org', info: 'New sessions started on the ki-pedia.org host.' },
+  { type: 'metric', key: 'url_wikiped_ia_ch', label: 'wikiped-ia.ch', info: 'New sessions started on the wikiped-ia.ch host.' },
+  { type: 'metric', key: 'url_wikiped_ia_org', label: 'wikiped-ia.org', info: 'New sessions started on the wikiped-ia.org host.' },
 
   { type: 'section', label: 'GUI Languages' },
-  { type: 'metric', key: 'gui_lang_de', label: 'DE' },
-  { type: 'metric', key: 'gui_lang_fr', label: 'FR' },
-  { type: 'metric', key: 'gui_lang_it', label: 'IT' },
-  { type: 'metric', key: 'gui_lang_rm', label: 'RM' },
-  { type: 'metric', key: 'gui_lang_en', label: 'EN' },
+  { type: 'metric', key: 'gui_lang_de', label: 'DE', info: 'New sessions where the interface language was German.' },
+  { type: 'metric', key: 'gui_lang_fr', label: 'FR', info: 'New sessions where the interface language was French.' },
+  { type: 'metric', key: 'gui_lang_it', label: 'IT', info: 'New sessions where the interface language was Italian.' },
+  { type: 'metric', key: 'gui_lang_rm', label: 'RM', info: 'New sessions where the interface language was Romansh.' },
+  { type: 'metric', key: 'gui_lang_en', label: 'EN', info: 'New sessions where the interface language was English.' },
 ];
 
 export default defineComponent({
@@ -150,7 +160,7 @@ export default defineComponent({
       loading: false,
       errorMessage: '',
       pagination: {
-        rowsPerPage: 30,
+        rowsPerPage: 0,
       },
     };
   },
@@ -193,6 +203,8 @@ export default defineComponent({
           }
           return row;
         }
+
+        row.info = definition.info;
 
         for (const monthRow of this.sortedMonthlyRows) {
           row[monthRow.monthPrimary] = monthRow[definition.key];
@@ -313,6 +325,17 @@ export default defineComponent({
   :deep(tbody tr:nth-child(even)) {
     background: rgba(2, 132, 199, 0.06);
   }
+}
+
+.metric-cell-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-info-icon {
+  color: #6b7280;
+  cursor: help;
 }
 
 .metric-section {

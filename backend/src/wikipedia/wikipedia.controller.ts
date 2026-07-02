@@ -5,11 +5,15 @@ import {
   Param,
   Query,
 } from '@nestjs/common';
-import { WikipediaService } from './wikipedia.service';
+import { WikipediaService, type WikiArticle } from './wikipedia.service';
+import { StatsService } from '../stats/stats.service';
 
 @Controller('wikipedia')
 export class WikipediaController {
-  constructor(private readonly wikipediaService: WikipediaService) {}
+  constructor(
+    private readonly wikipediaService: WikipediaService,
+    private readonly statsService: StatsService,
+  ) {}
 
   @Get('search')
   search(@Query('q') query: string, @Query('lang') lang?: string) {
@@ -20,8 +24,13 @@ export class WikipediaController {
   }
 
   @Get('article/:title')
-  getArticle(@Param('title') title: string, @Query('lang') lang?: string) {
-    return this.wikipediaService.getArticle(title, lang);
+  async getArticle(
+    @Param('title') title: string,
+    @Query('lang') lang?: string,
+  ): Promise<WikiArticle> {
+    const article = await this.wikipediaService.getArticle(title, lang);
+    void this.statsService.incrementArticleView();
+    return article;
   }
 
   @Get('article/:title/languages')

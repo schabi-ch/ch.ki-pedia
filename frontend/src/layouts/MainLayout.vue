@@ -3,19 +3,17 @@
     <q-header class="header-glass">
       <q-toolbar style="height: 60px;">
         <router-link v-if="showHeaderBrand" to="/" class="header-brand" :aria-label="$t('search.placeholder')">
-          <!-- <img src="~assets/img/logo-ki-pedia.png" class="q-mr-sm header-logo" /> -->
 
-          <!-- <img v-if="currentLocale == 'de'" src="~assets/img/title-ki-pedia.svg" class="header-title"
-            style="height: 32px;" />
-          <img v-else src="~assets/img/title-wikiped-ia.svg" class="header-title" style="height: 32px;" /> -->
 
           <div class="header-title-text">
-            <template v-if="branding.isKiPediaBrand">
+            ki<span style="color: #D3C6E1;">-pedia</span>.
+            <!-- <span style="color: #D3C6E1;">ki</span>-pedia<span style="color: #D3C6E1;">.</span> -->
+            <!-- <template v-if="branding.isKiPediaBrand">
               <span style="color: #A58AC5;">wi</span>ki-pedia<span style="color: #A58AC5;">.</span>
             </template>
-            <template v-else>
+<template v-else>
               {{ branding.headerLogo }}<span style="color: #A58AC5;">.</span>
-            </template>
+            </template> -->
           </div>
         </router-link>
 
@@ -114,23 +112,23 @@
     <q-dialog v-model="articleLanguageNoticeOpen">
       <q-card class="article-language-notice-card">
         <q-card-section class="article-language-notice-header">
-          <div class="article-language-notice-title">{{ $t('article.languageNoticeTitle') }}</div>
-          <q-btn flat dense round icon="close" v-close-popup :aria-label="$t('article.close')" />
+          <div class="article-language-notice-title">{{ articleLanguageNoticeText.title }}</div>
+          <q-btn flat dense round icon="close" v-close-popup :aria-label="articleLanguageNoticeText.close" />
         </q-card-section>
 
         <q-card-section class="article-language-notice-copy">
           <p>
-            {{ $t('article.languageNoticeDisplayLanguage', { lang: articleLanguageNoticeUiLangLabel }) }}
+            {{ articleLanguageNoticeText.displayLanguage }}
           </p>
           <p>
-            {{ $t('article.languageNoticeArticleLanguage', { lang: articleLanguageNoticeArticleLangLabel }) }}
+            {{ articleLanguageNoticeText.articleLanguage }}
           </p>
-          <p>{{ $t('article.languageNoticeSearchAgain') }}</p>
+          <p>{{ articleLanguageNoticeText.searchAgain }}</p>
         </q-card-section>
 
         <q-card-actions align="right" class="article-language-notice-actions">
-          <q-btn flat no-caps :label="$t('article.languageNoticeOk')" v-close-popup />
-          <q-btn color="primary" unelevated no-caps icon="search" :label="$t('article.languageNoticeSearchButton')"
+          <q-btn flat no-caps :label="articleLanguageNoticeText.ok" v-close-popup />
+          <q-btn color="primary" unelevated no-caps icon="search" :label="articleLanguageNoticeText.searchButton"
             @click="searchCurrentArticleAgain" />
         </q-card-actions>
       </q-card>
@@ -170,6 +168,26 @@ import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 
 const DARK_STORAGE_KEY = 'ki-pedia-dark';
 
+type ArticleLanguageNoticeText = {
+  title: string;
+  close: string;
+  displayLanguage: string;
+  articleLanguage: string;
+  searchAgain: string;
+  ok: string;
+  searchButton: string;
+};
+
+const emptyArticleLanguageNoticeText: ArticleLanguageNoticeText = {
+  title: '',
+  close: '',
+  displayLanguage: '',
+  articleLanguage: '',
+  searchAgain: '',
+  ok: '',
+  searchButton: '',
+};
+
 export default defineComponent({
   name: 'MainLayout',
 
@@ -184,6 +202,7 @@ export default defineComponent({
     const { locale, t } = useI18n({ useScope: 'global' });
     const wikiStore = useWikipediaStore();
     const articleLanguageNoticeOpen = ref(false);
+    const articleLanguageNoticeText = ref<ArticleLanguageNoticeText>({ ...emptyArticleLanguageNoticeText });
     const {
       suggestions,
       showSuggestions,
@@ -227,11 +246,25 @@ export default defineComponent({
       return getWikiLanguageLabel(code, locale.value) ?? code;
     }
 
-    const articleLanguageNoticeArticleLangLabel = computed(() => languageLabelFor(wikiStore.articleLang));
-    const articleLanguageNoticeUiLangLabel = computed(() => {
-      const uiWikiLang = locale.value === 'en-US' ? 'en' : locale.value;
-      return languageLabelFor(uiWikiLang);
-    });
+    function uiWikiLangForLocale (value: string) {
+      return value === 'en-US' ? 'en' : value;
+    }
+
+    function buildArticleLanguageNoticeText (nextLocale: string): ArticleLanguageNoticeText {
+      return {
+        title: t('article.languageNoticeTitle'),
+        close: t('article.close'),
+        displayLanguage: t('article.languageNoticeDisplayLanguage', {
+          lang: languageLabelFor(uiWikiLangForLocale(nextLocale)),
+        }),
+        articleLanguage: t('article.languageNoticeArticleLanguage', {
+          lang: languageLabelFor(wikiStore.articleLang),
+        }),
+        searchAgain: t('article.languageNoticeSearchAgain'),
+        ok: t('article.languageNoticeOk'),
+        searchButton: t('article.languageNoticeSearchButton'),
+      };
+    }
 
     const currentLocaleLabel = computed(() => {
       return localeOptions.find((option) => option.value === currentLocale.value)?.label ?? currentLocale.value;
@@ -248,12 +281,13 @@ export default defineComponent({
         return;
       }
 
-      locale.value = val;
-      saveLocale(val);
-
       if (isArticlePage.value && wikiStore.article) {
+        articleLanguageNoticeText.value = buildArticleLanguageNoticeText(val);
         articleLanguageNoticeOpen.value = true;
       }
+
+      locale.value = val;
+      saveLocale(val);
     }
 
     function searchCurrentArticleAgain () {
@@ -332,8 +366,7 @@ export default defineComponent({
       localeOptions,
       currentLocale,
       articleLanguageNoticeOpen,
-      articleLanguageNoticeArticleLangLabel,
-      articleLanguageNoticeUiLangLabel,
+      articleLanguageNoticeText,
       showHeaderBrand,
       currentLocaleLabel,
       localeTooltipLabel,

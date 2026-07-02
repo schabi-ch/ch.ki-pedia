@@ -10,6 +10,23 @@
       </span>
     </q-banner>
 
+    <q-banner v-if="showRomanshNotice" class="preview-banner romansh-notice-banner" rounded>
+      <template v-slot:avatar>
+        <q-icon name="info" color="warning" />
+      </template>
+      <div class="preview-banner-text">
+        <p>
+          Actualmain na datti anc betg avunda datas en rumantsch en ils gronds models linguistics d'intelligenza
+          artifiziala per garantir resultats d'auta qualitad. Per ki-pedia resta vinavant la finamira da pudair
+          porscher questa pagina era per rumantsch.
+        </p>
+        <p>
+          At present, there is not yet enough Romansh data in large AI language models to ensure high-quality results.
+          For ki-pedia, offering this site in Romansh remains an ongoing goal.
+        </p>
+      </div>
+    </q-banner>
+
     <div class="row justify-center items-center q-gutter-md q-my-lg">
       <q-btn color="primary" :label="$t('homeButtons.whatIs', { brandName })" to="/about" rounded unelevated
         class="search-btn" no-caps />
@@ -20,18 +37,20 @@
 
     <div class="hero-section" v-if="!store.searchQuery">
       <div class="col-12 col-md-8 text-center hero-content">
-        <div class="hero-title text-primary q-mb-xs">
-          <template v-if="branding.isKiPediaBrand">
+        <div class="hero-title text-primary q-mb-lg">
+          ki<span style="color: #D3C6E1;">-pedia</span>.
+          <!-- <span style="color: #D3C6E1;">ki</span>-pedia<span style="color: #D3C6E1;">.</span> -->
+          <!-- <template v-if="branding.isKiPediaBrand">
             <span style="color: #CED1EC;">wi</span>ki-pedia<span style="color: #CED1EC;">.</span>
           </template>
           <template v-else>
             {{ branding.heroLogo }}<span style="color: #CED1EC;">.</span>
-          </template>
+          </template> -->
         </div>
 
-        <div class="hero-tagline q-mb-xl">
+        <!-- <div class="hero-tagline q-mb-xl">
           {{ $t('app.tagline') }}
-        </div>
+        </div> -->
         <q-form @submit.prevent="onSearch" class="row items-center q-gutter-sm justify-center">
           <div class="search-wrapper">
             <q-input v-model="searchInput" rounded standout="bg-white text-dark" :placeholder="$t('search.placeholder')"
@@ -113,7 +132,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { computed, defineComponent } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useWikipediaStore } from 'stores/wikipedia';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
 import { resolveCurrentBranding } from 'src/utils/branding';
@@ -123,8 +143,10 @@ export default defineComponent({
 
   setup () {
     const store = useWikipediaStore();
+    const { locale } = useI18n({ useScope: 'global' });
     const branding = resolveCurrentBranding();
     const brandName = branding.isKiPediaBrand ? 'ki-pedia' : 'wikiped-ia';
+    const showRomanshNotice = computed(() => locale.value === 'rm');
     const {
       suggestions,
       showSuggestions,
@@ -141,6 +163,7 @@ export default defineComponent({
     return {
       branding,
       brandName,
+      showRomanshNotice,
       store,
       suggestions,
       showSuggestions,
@@ -224,6 +247,18 @@ export default defineComponent({
 
 .preview-banner-text {
   line-height: 1.4;
+}
+
+.preview-banner-text p {
+  margin: 0 0 6px;
+}
+
+.preview-banner-text p:last-child {
+  margin-bottom: 0;
+}
+
+.romansh-notice-banner {
+  margin-top: 8px;
 }
 
 .hero-section {

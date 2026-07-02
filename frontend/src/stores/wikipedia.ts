@@ -180,6 +180,17 @@ export interface ArticleTranslationInfo {
   targetLang: string;
 }
 
+export interface ArticleViewState {
+  article: Article | null;
+  articleLanguages: ArticleLangLink[];
+  simplifiedContent: string;
+  activeVariant: ArticleVariant;
+  cefrLevel: CefrSliderLevel;
+  gradeLevel: GradeLevel;
+  articleLang: string;
+  articleTranslation: ArticleTranslationInfo | null;
+}
+
 export const useWikipediaStore = defineStore('wikipedia', () => {
   const searchResults = ref<SearchResult[]>([]);
   const searchQuery = ref('');
@@ -274,15 +285,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   function cancelTranslateByUser() {
     if (!translateLoading.value) return;
-    const sourceLang = translateSourceLang.value;
     abortTranslateStream();
     translateLoading.value = false;
     translateSourceLang.value = null;
-    articleTranslation.value = null;
-    if (sourceLang) {
-      articleLang.value = sourceLang;
-    }
-    simplifiedContent.value = '';
   }
 
   function cancelSimplifyByUser() {
@@ -309,6 +314,24 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     simplifiedContent.value = `${baseText}${separator}${suffix}`;
   }
 
+  function showOriginalArticle() {
+    abortSimplifyStream();
+    abortTranslateStream();
+    simplifyLoading.value = false;
+    translateLoading.value = false;
+    simplifySourceText.value = '';
+    translateSourceLang.value = null;
+    if (articleTranslation.value) {
+      articleLang.value = articleTranslation.value.sourceLang;
+    }
+    articleTranslation.value = null;
+    simplifiedContent.value = '';
+    activeVariant.value = 'original';
+    activeSimplifyMode.value = 'cefr';
+    cefrLevel.value = 'original';
+    clearSectionLearningState();
+  }
+
   function abortChatStream() {
     chatAbortController?.abort();
     chatAbortController = null;
@@ -319,6 +342,51 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     abortChatStream();
     chatLoading.value = false;
     chatMessages.value = [];
+  }
+
+  function getArticleViewState(): ArticleViewState {
+    return {
+      article: article.value
+        ? {
+          ...article.value,
+          appendixSections: article.value.appendixSections.map((section) => ({ ...section })),
+        }
+        : null,
+      articleLanguages: articleLanguages.value.map((lang) => ({ ...lang })),
+      simplifiedContent: simplifiedContent.value,
+      activeVariant: activeVariant.value,
+      cefrLevel: cefrLevel.value,
+      gradeLevel: gradeLevel.value,
+      articleLang: articleLang.value,
+      articleTranslation: articleTranslation.value ? { ...articleTranslation.value } : null,
+    };
+  }
+
+  function restoreArticleViewState(state: ArticleViewState) {
+    abortSimplifyStream();
+    abortTranslateStream();
+    abortChatStream();
+    articleLoading.value = false;
+    simplifyLoading.value = false;
+    translateLoading.value = false;
+    articleError.value = '';
+    simplifySourceText.value = '';
+    translateSourceLang.value = null;
+    article.value = state.article
+      ? {
+        ...state.article,
+        appendixSections: state.article.appendixSections ?? [],
+      }
+      : null;
+    articleLanguages.value = state.articleLanguages.map((lang) => ({ ...lang }));
+    simplifiedContent.value = state.simplifiedContent;
+    activeVariant.value = state.activeVariant;
+    activeSimplifyMode.value = state.activeVariant.startsWith('grade:') ? 'grade' : 'cefr';
+    cefrLevel.value = state.cefrLevel;
+    gradeLevel.value = state.gradeLevel;
+    articleLang.value = state.articleLang;
+    articleTranslation.value = state.articleTranslation ? { ...state.articleTranslation } : null;
+    clearSectionLearningState();
   }
 
   function clearSectionLearningState() {
@@ -998,6 +1066,8 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     setFontSize,
     fontFamily,
     setFontFamily,
+    getArticleViewState,
+    restoreArticleViewState,
     search,
     clearSearch,
     loadArticle,
@@ -1008,6 +1078,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     translate,
     abortTranslateStream,
     cancelTranslateByUser,
+    showOriginalArticle,
     sendMessage,
     loadSectionQuiz,
     loadSectionGlossary,

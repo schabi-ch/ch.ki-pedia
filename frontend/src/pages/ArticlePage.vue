@@ -1,5 +1,22 @@
 <template>
   <q-page class="q-pa-md article-page">
+    <q-banner v-if="showRomanshNotice" class="romansh-notice-banner" rounded>
+      <template v-slot:avatar>
+        <q-icon name="info" color="warning" />
+      </template>
+      <div class="romansh-notice-text">
+        <p>
+          Actualmain na datti anc betg avunda datas en rumantsch en ils gronds models linguistics d'intelligenza
+          artifiziala per garantir resultats d'auta qualitad. Per ki-pedia resta vinavant la finamira da pudair
+          porscher questa pagina era per rumantsch.
+        </p>
+        <p>
+          At present, there is not yet enough Romansh data in large AI language models to ensure high-quality results.
+          For ki-pedia, offering this site in Romansh remains an ongoing goal.
+        </p>
+      </div>
+    </q-banner>
+
     <div class="article-wrapper">
       <div v-if="store.articleLoading" class="row justify-center q-mt-xl">
         <div class="text-center">
@@ -18,7 +35,11 @@
             <q-btn v-if="!store.tocOpen" :key="tocButtonLabel" flat dense icon="toc" :label="tocButtonLabel"
               @click="store.setTocOpen(true)" no-caps />
           </div>
-          <div class="article-title">{{ displayArticleTitle }}</div>
+          <div class="article-title">
+            {{ displayArticleTitle }}
+            <q-btn v-if="showOriginalArticleButton" color="primary" dense no-caps unelevated class="q-ml-sm"
+              :label="$t('article.showOriginalArticle')" icon="article" @click="showOriginalArticle" />
+          </div>
           <div v-if="articleSubtitle" class="article-subtitle">{{ articleSubtitle }}</div>
           <div class="article-header-bar">
             <div class="article-header-meta">
@@ -77,6 +98,8 @@
                   <q-item-label v-if="articleLanguageGroups.worldwide.length > 0" header class="text-grey-7">
                     {{ $t('article.languagesWorldwide') }}
                   </q-item-label>
+                  <q-input outlined dense v-model="languageSearchQuery" :placeholder="$t('article.languageSearchPlaceholder')"
+                    class="q-mx-md q-mb-sm" />
                   <q-item v-for="opt in articleLanguageGroups.worldwide" :key="`worldwide:${opt.value}`" clickable
                     v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
                     <q-item-section>{{ opt.label }}</q-item-section>
@@ -243,7 +266,7 @@
 <script lang="ts">
 import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWikipediaStore, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
@@ -254,6 +277,12 @@ import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-sections';
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
+const ARTICLE_HISTORY_STATE_KEY = 'ki-pedia.article-view';
+
+interface ArticleHistoryState {
+  key: typeof ARTICLE_HISTORY_STATE_KEY;
+  view: ArticleViewState;
+}
 
 function decodeRouteTitleSafely (title: string): string {
   try {
@@ -261,6 +290,16 @@ function decodeRouteTitleSafely (title: string): string {
   } catch {
     return title;
   }
+}
+
+function isArticleHistoryState (state: unknown): state is ArticleHistoryState {
+  return (
+    !!state &&
+    typeof state === 'object' &&
+    'key' in state &&
+    (state as { key: unknown }).key === ARTICLE_HISTORY_STATE_KEY &&
+    'view' in state
+  );
 }
 
 export default defineComponent({
@@ -303,12 +342,14 @@ export default defineComponent({
     const copyLoading = ref(false);
     const wordLoading = ref(false);
     const sectionCopyLoading = ref('');
+    const languageSearchQuery = ref('');
     const quizDialogOpen = ref(false);
     const activeQuizSectionKey = ref('');
     const activeQuizSectionTitle = ref('');
     const hasInfobox = computed(() => !!store.article?.infoboxHtml);
     const showInfobox = computed(() => hasInfobox.value);
     const shouldCollapseInfoboxForVariant = computed(() => store.activeVariant !== 'original');
+    const showRomanshNotice = computed(() => locale.value === 'rm');
     const showOriginalHtmlContent = computed(
       () => store.activeVariant === 'original' && !store.simplifiedContent && !!store.article?.contentHtml,
     );
@@ -448,6 +489,10 @@ export default defineComponent({
       return store.translateLoading ? 'stop' : 'translate';
     });
 
+    const showOriginalArticleButton = computed(() => {
+      return store.activeVariant !== 'original' || !!store.articleTranslation || store.translateLoading;
+    });
+
     const updateCancelButtonsVisibility = () => {
       if (!store.simplifyLoading) {
         showBottomCancelButton.value = false;
@@ -473,6 +518,33 @@ export default defineComponent({
 
     const onViewportChange = () => {
       updateCancelButtonsVisibility();
+    };
+
+    const makeArticleHistoryState = (): ArticleHistoryState => ({
+      key: ARTICLE_HISTORY_STATE_KEY,
+      view: JSON.parse(JSON.stringify(store.getArticleViewState())) as ArticleViewState,
+    });
+
+    const rememberArticleVersionForBack = () => {
+      if (typeof window === 'undefined' || !store.article) {
+        return () => undefined;
+      }
+
+      const currentState = makeArticleHistoryState();
+      window.history.replaceState(currentState, document.title, window.location.href);
+      window.history.pushState(currentState, document.title, window.location.href);
+
+      return () => {
+        if (isArticleHistoryState(window.history.state)) {
+          window.history.replaceState(makeArticleHistoryState(), document.title, window.location.href);
+        }
+      };
+    };
+
+    const onArticleHistoryPopState = (event: PopStateEvent) => {
+      if (!isArticleHistoryState(event.state)) return;
+      store.restoreArticleViewState(event.state.view);
+      void nextTick(updateCancelButtonsVisibility);
     };
 
     watch(
@@ -502,6 +574,7 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener('scroll', onViewportChange, { passive: true });
       window.addEventListener('resize', onViewportChange);
+      window.addEventListener('popstate', onArticleHistoryPopState);
       void nextTick(updateCancelButtonsVisibility);
     });
 
@@ -516,6 +589,7 @@ export default defineComponent({
     onBeforeUnmount(() => {
       window.removeEventListener('scroll', onViewportChange);
       window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('popstate', onArticleHistoryPopState);
       document.title = 'ki-pedia';
     });
 
@@ -668,6 +742,7 @@ export default defineComponent({
 
     return {
       store,
+      showRomanshNotice,
       chatOpen,
       infoboxOpen,
       languageDialogOpen,
@@ -687,6 +762,7 @@ export default defineComponent({
       copyLoading,
       wordLoading,
       sectionCopyLoading,
+      languageSearchQuery,
       quizDialogOpen,
       activeQuizQuestions,
       activeQuizSectionTitle,
@@ -709,6 +785,8 @@ export default defineComponent({
       translateButtonLabel,
       translateActionLabel,
       translateActionIcon,
+      showOriginalArticleButton,
+      rememberArticleVersionForBack,
       CEFR_BUTTON_ORDER,
     };
   },
@@ -767,6 +845,7 @@ export default defineComponent({
 
     articleLanguageGroups () {
       const options = this.articleLangOptions;
+      const key = (code: string) => `languages.${code}`;
       const uiLocale = String(this.$i18n.locale ?? 'de');
       const uiWikiLang = uiLocale === 'en-US' ? 'en' : uiLocale;
 
@@ -788,8 +867,28 @@ export default defineComponent({
         }
       }
 
+      const languageSearchQuery = String(this.languageSearchQuery ?? '').trim().toLocaleLowerCase();
+      const matchesLanguageSearch = (opt: { label: string | undefined; value: string }) => {
+        if (!languageSearchQuery) return true;
+        const label = opt.label ?? '';
+        return (
+          label.toLocaleLowerCase().includes(languageSearchQuery) ||
+          opt.value.toLocaleLowerCase().includes(languageSearchQuery)
+        );
+      };
+      const sortByLabel = (
+        a: { label: string | undefined; value: string },
+        b: { label: string | undefined; value: string },
+      ) => {
+        return (a.label ?? '').localeCompare(b.label ?? '', String(this.$i18n.locale ?? undefined), { sensitivity: 'base' });
+      };
+
       const suggested = options.filter((opt) => suggestedCodes.has(opt.value));
-      const worldwide = options.filter((opt) => !suggestedCodes.has(opt.value));
+      const worldwide = options
+        .filter((opt) => !suggestedCodes.has(opt.value))
+        .filter((opt) => this.$te(key(opt.value)))
+        .filter(matchesLanguageSearch)
+        .sort(sortByLabel);
       return { suggested, worldwide };
     },
   },
@@ -830,28 +929,67 @@ export default defineComponent({
       });
     },
 
-    onCefrButtonClick (level: CefrSliderLevel) {
-      void this.store.applyCefrLevel(level);
+    async onCefrButtonClick (level: CefrSliderLevel) {
+      const nextVariant = level === 'original' ? 'original' : `cefr:${level}`;
+      const finishHistoryEntry = nextVariant === this.store.activeVariant
+        ? () => undefined
+        : this.rememberArticleVersionForBack();
+      try {
+        await this.store.applyCefrLevel(level);
+      } finally {
+        finishHistoryEntry();
+      }
       this.levelSliderOpen = false;
     },
 
-    onGradeButtonClick (grade: number) {
+    async onGradeButtonClick (grade: number) {
       if (grade < 4 || grade > 9) return;
-      void this.store.applyGradeLevel(grade as GradeLevel);
+      const nextVariant = `grade:${grade}`;
+      const finishHistoryEntry = nextVariant === this.store.activeVariant
+        ? () => undefined
+        : this.rememberArticleVersionForBack();
+      try {
+        await this.store.applyGradeLevel(grade as GradeLevel);
+      } finally {
+        finishHistoryEntry();
+      }
       this.levelSliderOpen = false;
     },
 
-    onLanguageSelect (lang: string) {
+    async onLanguageSelect (lang: string) {
+      if (lang === this.store.articleLang) {
+        this.languageDialogOpen = false;
+        return;
+      }
+      const finishHistoryEntry = this.rememberArticleVersionForBack();
       this.languageDialogOpen = false;
-      void this.store.loadArticleInLanguage(lang);
+      try {
+        await this.store.loadArticleInLanguage(lang);
+      } finally {
+        finishHistoryEntry();
+      }
     },
 
-    onTranslateToUiLang () {
+    async onTranslateToUiLang () {
       if (this.store.translateLoading) {
         this.store.cancelTranslateByUser();
         return;
       }
-      void this.store.translate(this.uiWikiLang);
+      const finishHistoryEntry = this.rememberArticleVersionForBack();
+      try {
+        await this.store.translate(this.uiWikiLang);
+      } finally {
+        finishHistoryEntry();
+      }
+    },
+
+    showOriginalArticle () {
+      const finishHistoryEntry = this.rememberArticleVersionForBack();
+      try {
+        this.store.showOriginalArticle();
+      } finally {
+        finishHistoryEntry();
+      }
     },
 
     printArticle () {
@@ -864,6 +1002,34 @@ export default defineComponent({
 <style src="@quasar/quasar-ui-qmarkdown/dist/index.css"></style>
 
 <style lang="scss" scoped>
+.romansh-notice-banner {
+  max-width: 900px;
+  margin: 0 auto 16px;
+  background: #fff3cd;
+  border-bottom: 2px solid #f0a500;
+  color: #7a4f00;
+  font-size: 0.85rem;
+  padding: 6px 16px;
+}
+
+.body--dark .romansh-notice-banner {
+  background: #3a2e00;
+  border-bottom-color: #f0a500;
+  color: #ffd966;
+}
+
+.romansh-notice-text {
+  line-height: 1.4;
+}
+
+.romansh-notice-text p {
+  margin: 0 0 6px;
+}
+
+.romansh-notice-text p:last-child {
+  margin-bottom: 0;
+}
+
 .article-wrapper {
   max-width: 900px;
   margin: 0 auto;
@@ -1053,7 +1219,7 @@ export default defineComponent({
 }
 
 .article-card-inner {
-  padding: 32px 40px;
+  padding: 16px 40px;
 }
 
 .article-card-inner::after {
@@ -1067,7 +1233,7 @@ export default defineComponent({
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 32px;
 }
 
 .article-action-btn {
@@ -1399,6 +1565,10 @@ export default defineComponent({
 }
 
 @media (max-width: 420px) {
+  .chat-fab {
+    right: 16px;
+  }
+
   .level-fab {
     right: 16px;
     bottom: 96px;
@@ -1413,10 +1583,11 @@ export default defineComponent({
   }
 
   .level-panel {
-    right: 90px;
-    bottom: 96px;
-    width: calc(100vw - 32px);
-    max-height: 60vh;
+    left: 16px;
+    right: 16px;
+    bottom: 176px;
+    width: auto;
+    max-height: calc(100dvh - 208px);
   }
 }
 
