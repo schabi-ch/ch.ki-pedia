@@ -4,11 +4,14 @@ import { api, getLocalizedMessage, notifySuccess } from 'boot/axios';
 import { LocalStorage } from 'quasar';
 import { getVersion, setVersion } from './article-cache';
 import { infoboxHtmlToText } from 'src/utils/infobox-text';
+import type { ChatCitationSegment } from 'src/utils/article-citations';
 
 const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 const TOC_OPEN_STORAGE_KEY = 'ki-pedia-article-toc-open';
 const FONT_SIZE_STORAGE_KEY = 'ki-pedia-font-size';
 const FONT_FAMILY_STORAGE_KEY = 'ki-pedia-font-family';
+const MAX_CHAT_SEGMENTS = 2_000;
+const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 1_000_000;
 
 export type FontSizeLevel = 'standard' | 'large' | 'x-large';
 export type FontFamily = 'standard' | 'luciole' | 'open-dyslexic';
@@ -132,9 +135,17 @@ interface SimplifyRequestPayload {
 }
 
 export interface ChatMessage {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
+  citations?: string[];
+  citationContextKey?: string;
 }
+
+type ChatStreamEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'citations'; ids: string[] }
+  | { type: 'done' };
 
 export interface QuizAnswerOption {
   text: string;
@@ -242,8 +253,13 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
   const chatMessages = ref<ChatMessage[]>([]);
   const chatLoading = ref(false);
+  const chatCitationSegments = ref<ChatCitationSegment[]>([]);
+  const chatCitationContextKey = ref('');
+  const activeChatMessageId = ref<string | null>(null);
+  const focusedCitationId = ref<string | null>(null);
   let chatAbortController: AbortController | null = null;
   let chatRunId = 0;
+  let chatMessageId = 0;
 
   const tocOpen = ref(getSavedTocOpen());
 
@@ -343,6 +359,40 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     abortChatStream();
     chatLoading.value = false;
     chatMessages.value = [];
+    activeChatMessageId.value = null;
+    focusedCitationId.value = null;
+  }
+
+  function setChatCitationSegments(segments: ChatCitationSegment[], contextKey: string) {
+    let totalLength = 0;
+    chatCitationSegments.value = segments.slice(0, MAX_CHAT_SEGMENTS).filter((segment) => {
+      totalLength += segment.text.length;
+      return totalLength <= MAX_CHAT_SEGMENTS_TOTAL_LENGTH;
+    });
+    if (chatCitationContextKey.value !== contextKey) {
+      chatCitationContextKey.value = contextKey;
+      activeChatMessageId.value = null;
+      focusedCitationId.value = null;
+    }
+  }
+
+  function activateChatCitations(messageId: string, citationId?: string) {
+    const message = chatMessages.value.find((entry) => entry.id === messageId);
+    if (!message?.citations?.length || message.citationContextKey !== chatCitationContextKey.value) {
+      return;
+    }
+    activeChatMessageId.value = messageId;
+    focusedCitationId.value = citationId ?? message.citations[0] ?? null;
+  }
+
+  function clearActiveChatCitations() {
+    activeChatMessageId.value = null;
+    focusedCitationId.value = null;
+  }
+
+  function nextChatMessageId(): string {
+    chatMessageId += 1;
+    return `chat-${chatMessageId}`;
   }
 
   function getArticleViewState(): ArticleViewState {
@@ -432,8 +482,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     resetSimplificationState();
     clearSectionLearningState();
     articleLang.value = getWikiLang();
-    chatMessages.value = [];
-    abortChatStream();
+    clearChatHistory();
     try {
       const response = await api.get<Article>(`/wikipedia/article/${encodeURIComponent(title)}`, {
         params: { lang: getWikiLang() },
@@ -663,8 +712,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     resetSimplificationState();
     clearSectionLearningState();
     articleLang.value = targetLang;
-    chatMessages.value = [];
-    abortChatStream();
+    clearChatHistory();
     try {
       const response = await api.get<Article>(
         `/wikipedia/article/${encodeURIComponent(langLink.title)}`,
@@ -694,10 +742,20 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     const controller = new AbortController();
     chatAbortController = controller;
     const runId = ++chatRunId;
-    const history = chatMessages.value.slice(-10);
+    const history = chatMessages.value.slice(-10).map(({ role, content }) => ({ role, content }));
+    const citationContext = chatCitationContextKey.value;
+    const segments = chatCitationSegments.value.map((segment) => ({ ...segment }));
+    const assistantMessageId = nextChatMessageId();
 
-    chatMessages.value.push({ role: 'user', content: message });
-    chatMessages.value.push({ role: 'assistant', content: '' });
+    chatMessages.value.push({ id: nextChatMessageId(), role: 'user', content: message });
+    chatMessages.value.push({
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      citations: [],
+      citationContextKey: citationContext,
+    });
+    clearActiveChatCitations();
     chatLoading.value = true;
     try {
       const response = await fetch('/api/ai/chat/stream', {
@@ -705,11 +763,14 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           articleTitle: article.value.title,
-          articleContent: simplifiedContent.value || article.value.contentMarkdown,
-          infoboxContent: infoboxHtmlToText(article.value.infoboxHtml),
+          articleContent: segments.length > 0
+            ? 'Article content is provided in addressable segments.'
+            : simplifiedContent.value || article.value.contentMarkdown,
+          infoboxContent: segments.length > 0 ? '' : infoboxHtmlToText(article.value.infoboxHtml),
           isOriginalArticle: activeVariant.value === 'original',
           message,
           history,
+          segments,
         }),
         signal: controller.signal,
       });
@@ -721,34 +782,41 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       if (!response.body) {
         throw new Error('Chat stream did not return a readable body');
       }
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let eventBuffer = '';
+      const processEventLine = (line: string) => {
+        if (!line.trim() || runId !== chatRunId) return;
+        const event = JSON.parse(line) as ChatStreamEvent;
+        const assistantMessage = chatMessages.value.find((entry) => entry.id === assistantMessageId);
+        if (!assistantMessage || assistantMessage.role !== 'assistant') return;
+        if (event.type === 'delta') {
+          assistantMessage.content += event.text;
+        } else if (event.type === 'citations') {
+          const validIds = new Set(segments.map((segment) => segment.id));
+          assistantMessage.citations = [...new Set(event.ids)].filter((id) => validIds.has(id));
+          if (assistantMessage.citations.length > 0 && citationContext === chatCitationContextKey.value) {
+            activateChatCitations(assistantMessageId);
+          }
+        }
+      };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        if (!chunk) continue;
-        if (runId !== chatRunId) {
-          continue;
-        }
-        const assistantMessage = chatMessages.value.at(-1);
-        if (assistantMessage?.role === 'assistant') {
-          assistantMessage.content += chunk;
+        eventBuffer += decoder.decode(value, { stream: true });
+        const lines = eventBuffer.split('\n');
+        eventBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          processEventLine(line);
         }
       }
 
-      const trailing = decoder.decode();
-      if (trailing && runId === chatRunId) {
-        const assistantMessage = chatMessages.value.at(-1);
-        if (assistantMessage?.role === 'assistant') {
-          assistantMessage.content += trailing;
-        }
-      }
+      eventBuffer += decoder.decode();
+      processEventLine(eventBuffer);
     } catch (err) {
       if (isAbortError(err)) {
         if (runId === chatRunId) {
-          const assistantMessage = chatMessages.value.at(-1);
+          const assistantMessage = chatMessages.value.find((entry) => entry.id === assistantMessageId);
           if (assistantMessage?.role === 'assistant' && !assistantMessage.content.trim()) {
             chatMessages.value.pop();
           }
@@ -756,7 +824,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         return;
       }
       console.error('Chat stream error:', err);
-      const assistantMessage = chatMessages.value.at(-1);
+      const assistantMessage = chatMessages.value.find((entry) => entry.id === assistantMessageId);
       if (assistantMessage?.role === 'assistant') {
         assistantMessage.content = 'Sorry, something went wrong. Please try again.';
       }
@@ -1060,6 +1128,10 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleError,
     chatMessages,
     chatLoading,
+    chatCitationSegments,
+    chatCitationContextKey,
+    activeChatMessageId,
+    focusedCitationId,
     tocOpen,
     setTocOpen,
     toggleToc,
@@ -1087,6 +1159,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     cancelSimplifyByUser,
     abortChatStream,
     clearChatHistory,
+    setChatCitationSegments,
+    activateChatCitations,
+    clearActiveChatCitations,
   };
 });
 

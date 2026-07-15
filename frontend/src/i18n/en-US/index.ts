@@ -350,6 +350,9 @@ export default {
     collapse: 'Shrink chat window',
     you: 'You',
     assistant: 'ki-pedia',
+    sources: 'Sources',
+    source: 'Source {number}',
+    sourceUnavailable: 'This source belongs to a different article version.',
   },
   preview: {
     label: 'Preview:',

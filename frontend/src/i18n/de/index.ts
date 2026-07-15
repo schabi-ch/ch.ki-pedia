@@ -350,6 +350,9 @@ export default {
     collapse: 'Chatfenster verkleinern',
     you: 'Du',
     assistant: 'ki-pedia',
+    sources: 'Quellen',
+    source: 'Quelle {number}',
+    sourceUnavailable: 'Diese Quelle gehört zu einer anderen Artikelversion.',
   },
   preview: {
     label: 'Vorschau-Version:',

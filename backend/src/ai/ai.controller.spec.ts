@@ -2,7 +2,7 @@
 
 import { BadRequestException } from '@nestjs/common';
 import { AiController } from './ai.controller';
-import type { AiService } from './ai.service';
+import type { AiService, ChatArticleContext, ChatMessage } from './ai.service';
 import type { StatsService } from '../stats/stats.service';
 
 describe('AiController statistics instrumentation', () => {
@@ -14,6 +14,19 @@ describe('AiController statistics instrumentation', () => {
     aiService = {
       simplify: jest.fn().mockResolvedValue({ simplified: 'easy' }),
       chat: jest.fn().mockResolvedValue({ reply: 'answer' }),
+      chatStream: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _article: ChatArticleContext,
+            _message: string,
+            _history: ChatMessage[],
+            onChunk: (chunk: string) => void | Promise<void>,
+          ) => {
+            await onChunk('answer');
+            return { reply: 'answer', citations: ['article-1'] };
+          },
+        ),
       translate: jest.fn().mockResolvedValue({ translated: 'traduit' }),
       generateQuiz: jest.fn().mockResolvedValue({
         questions: [
@@ -216,6 +229,7 @@ describe('AiController statistics instrumentation', () => {
         content: 'Article',
         infoboxContent: '',
         isOriginalArticle: true,
+        segments: [],
       },
       'What is it?',
       [],
@@ -230,6 +244,9 @@ describe('AiController statistics instrumentation', () => {
       isOriginalArticle: false,
       message: 'How high is it?',
       history: [],
+      segments: [
+        { id: 'article-1', text: 'The Matterhorn is 4478 metres high.' },
+      ],
     });
 
     expect(aiService.chat.mock.calls[0][0]).toEqual({
@@ -237,7 +254,75 @@ describe('AiController statistics instrumentation', () => {
       content: 'Article',
       infoboxContent: 'Elevation: 4478 m',
       isOriginalArticle: false,
+      segments: [
+        { id: 'article-1', text: 'The Matterhorn is 4478 metres high.' },
+      ],
     });
+  });
+
+  it('rejects chat segments with invalid or duplicate ids', () => {
+    expect(() =>
+      controller.chat({
+        articleTitle: 'Matterhorn',
+        articleContent: 'Article',
+        message: 'What is it?',
+        segments: [{ id: 'article:1', text: 'Text' }],
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      controller.chat({
+        articleTitle: 'Matterhorn',
+        articleContent: 'Article',
+        message: 'What is it?',
+        segments: [
+          { id: 'article-1', text: 'Text' },
+          { id: 'article-1', text: 'More text' },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('streams chat text and citations as NDJSON events', async () => {
+    const request = {
+      on: jest.fn(),
+    } as unknown as import('express').Request;
+    const written: string[] = [];
+    const setHeader = jest.fn();
+    const end = jest.fn();
+    const response = {
+      setHeader,
+      flushHeaders: jest.fn(),
+      on: jest.fn(),
+      write: jest.fn((chunk: string) => {
+        written.push(chunk);
+        return true;
+      }),
+      end,
+      destroy: jest.fn(),
+      writableEnded: false,
+    } as unknown as import('express').Response;
+
+    await controller.chatStream(
+      {
+        articleTitle: 'Matterhorn',
+        articleContent: 'Article',
+        message: 'What is it?',
+        segments: [{ id: 'article-1', text: 'The Matterhorn is a mountain.' }],
+      },
+      request,
+      response,
+    );
+
+    expect(setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/x-ndjson; charset=utf-8',
+    );
+    expect(written.map((line) => JSON.parse(line) as unknown)).toEqual([
+      { type: 'delta', text: 'answer' },
+      { type: 'citations', ids: ['article-1'] },
+      { type: 'done' },
+    ]);
+    expect(end).toHaveBeenCalled();
   });
 
   it('rejects chat history entries with invalid roles', () => {

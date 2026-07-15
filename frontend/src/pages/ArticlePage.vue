@@ -98,8 +98,8 @@
                   <q-item-label v-if="articleLanguageGroups.worldwide.length > 0" header class="text-grey-7">
                     {{ $t('article.languagesWorldwide') }}
                   </q-item-label>
-                  <q-input outlined dense v-model="languageSearchQuery" :placeholder="$t('article.languageSearchPlaceholder')"
-                    class="q-mx-md q-mb-sm" />
+                  <q-input outlined dense v-model="languageSearchQuery"
+                    :placeholder="$t('article.languageSearchPlaceholder')" class="q-mx-md q-mb-sm" />
                   <q-item v-for="opt in articleLanguageGroups.worldwide" :key="`worldwide:${opt.value}`" clickable
                     v-close-popup :active="opt.value === store.articleLang" @click="onLanguageSelect(opt.value)">
                     <q-item-section>{{ opt.label }}</q-item-section>
@@ -133,7 +133,7 @@
               <div class="infobox-header">
                 <div class="infobox-title">Info-Box</div>
               </div>
-              <div class="infobox-body" v-html="store.article.infoboxHtml" />
+              <div ref="infoboxPrintRef" class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
             <div v-if="infoboxOpen && showInfobox" class="infobox-float">
@@ -141,7 +141,7 @@
                 <div class="infobox-title">Info-Box</div>
                 <q-btn flat dense round icon="close" size="sm" class="infobox-close" @click="infoboxOpen = false" />
               </div>
-              <div class="infobox-body" v-html="store.article.infoboxHtml" />
+              <div ref="infoboxFloatRef" class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
             <div v-if="store.translateLoading" class="text-center q-py-sm">
@@ -223,8 +223,7 @@
                   :color="store.activeVariant === `grade:${grade.level}` ? 'primary' : 'primary'"
                   :outline="store.activeVariant !== `grade:${grade.level}`"
                   :unelevated="store.activeVariant === `grade:${grade.level}`" rounded dense no-caps size="sm"
-                  class="grade-btn" :label="grade.label"
-                  @click="onGradeButtonClick(grade.level)" />
+                  class="grade-btn" :label="grade.label" @click="onGradeButtonClick(grade.level)" />
               </div>
             </div>
 
@@ -275,6 +274,7 @@ import { extractHeadings } from 'src/utils/article-headings';
 import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article-export';
 import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-sections';
+import { assignCitationSegments, citationContextKey } from 'src/utils/article-citations';
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 const ARTICLE_HISTORY_STATE_KEY = 'ki-pedia.article-view';
@@ -342,6 +342,8 @@ export default defineComponent({
     const languageDialogOpen = ref(false);
     const topCancelRef = ref<HTMLElement | null>(null);
     const articleContentRef = ref<HTMLElement | null>(null);
+    const infoboxPrintRef = ref<HTMLElement | null>(null);
+    const infoboxFloatRef = ref<HTMLElement | null>(null);
     const showBottomCancelButton = ref(false);
     const copyLoading = ref(false);
     const wordLoading = ref(false);
@@ -501,6 +503,70 @@ export default defineComponent({
       return store.activeVariant !== 'original' || !!store.articleTranslation || store.translateLoading;
     });
 
+    const activeCitationMessage = computed(() => {
+      if (!store.activeChatMessageId) return null;
+      return store.chatMessages.find((message) => message.id === store.activeChatMessageId) ?? null;
+    });
+
+    const clearCitationClasses = () => {
+      document.querySelectorAll<HTMLElement>('[data-citation-id]').forEach((element) => {
+        element.classList.remove('citation-highlight', 'citation-highlight--focused');
+      });
+    };
+
+    const applyCitationHighlights = async () => {
+      clearCitationClasses();
+      const message = activeCitationMessage.value;
+      if (
+        !message?.citations?.length ||
+        message.citationContextKey !== store.chatCitationContextKey
+      ) {
+        return;
+      }
+
+      if (message.citations.some((id) => id.startsWith('infobox-')) && !infoboxOpen.value) {
+        infoboxOpen.value = true;
+        await nextTick();
+        if (infoboxFloatRef.value) {
+          assignCitationSegments(infoboxFloatRef.value, 'infobox');
+        }
+      }
+
+      document.querySelectorAll<HTMLElement>('[data-citation-id]').forEach((element) => {
+        const id = element.dataset.citationId;
+        if (!id || !message.citations?.includes(id)) return;
+        element.classList.add('citation-highlight');
+        if (id === store.focusedCitationId) {
+          element.classList.add('citation-highlight--focused');
+        }
+      });
+      const focusedElement = [...document.querySelectorAll<HTMLElement>('.citation-highlight--focused')]
+        .find((element) => element.offsetParent !== null);
+      focusedElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const rebuildCitationSegments = async () => {
+      await nextTick();
+      const articleSegments = articleContentRef.value
+        ? assignCitationSegments(articleContentRef.value, 'article')
+        : [];
+      const infoboxSegments = infoboxPrintRef.value
+        ? assignCitationSegments(infoboxPrintRef.value, 'infobox')
+        : [];
+      if (infoboxFloatRef.value) {
+        assignCitationSegments(infoboxFloatRef.value, 'infobox');
+      }
+      const contextKey = citationContextKey([
+        store.article?.title ?? '',
+        store.articleLang,
+        store.activeVariant,
+        store.displayedContent,
+        store.article?.infoboxHtml ?? '',
+      ]);
+      store.setChatCitationSegments([...articleSegments, ...infoboxSegments], contextKey);
+      await applyCitationHighlights();
+    };
+
     const updateCancelButtonsVisibility = () => {
       if (!store.simplifyLoading) {
         showBottomCancelButton.value = false;
@@ -566,8 +632,27 @@ export default defineComponent({
       () => store.displayedContent,
       () => {
         void nextTick(updateCancelButtonsVisibility);
+        void rebuildCitationSegments();
       },
     );
+
+    watch(
+      () => store.article?.infoboxHtml,
+      () => {
+        void rebuildCitationSegments();
+      },
+    );
+
+    watch(
+      () => [store.activeChatMessageId, store.focusedCitationId],
+      () => {
+        void applyCitationHighlights();
+      },
+    );
+
+    watch(infoboxOpen, () => {
+      void rebuildCitationSegments();
+    });
 
     watch(
       shouldCollapseInfoboxForVariant,
@@ -584,6 +669,7 @@ export default defineComponent({
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('popstate', onArticleHistoryPopState);
       void nextTick(updateCancelButtonsVisibility);
+      void rebuildCitationSegments();
     });
 
     watch(
@@ -756,6 +842,8 @@ export default defineComponent({
       languageDialogOpen,
       topCancelRef,
       articleContentRef,
+      infoboxPrintRef,
+      infoboxFloatRef,
       showBottomCancelButton,
       hasInfobox,
       showInfobox,
@@ -1273,6 +1361,35 @@ export default defineComponent({
 
 .article-content {
   line-height: 1.7;
+}
+
+.article-content :deep(.citation-highlight),
+.infobox-body :deep(.citation-highlight) {
+  background: rgba(255, 193, 7, 0.24);
+  border-radius: 4px;
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.24);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-content :deep(.citation-highlight--focused),
+.infobox-body :deep(.citation-highlight--focused) {
+  background: rgba(255, 152, 0, 0.34);
+  box-shadow: 0 0 0 3px rgba(230, 81, 0, 0.55);
+}
+
+:global(.body--dark) .article-content :deep(.citation-highlight),
+:global(.body--dark) .infobox-body :deep(.citation-highlight) {
+  background: rgba(255, 213, 79, 0.2);
+  box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.32);
+}
+
+@media print {
+
+  .article-content :deep(.citation-highlight),
+  .infobox-body :deep(.citation-highlight) {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
 }
 
 .article-markdown {

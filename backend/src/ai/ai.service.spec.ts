@@ -52,17 +52,17 @@ describe('AiService', () => {
     global.fetch = fetchMock;
     jest
       .spyOn(geminiProviderPrototype, 'createGenAI')
-      .mockImplementation(async (projectId, location) => {
+      .mockImplementation((projectId, location) => {
         mockGoogleGenAIConstructor({
           vertexai: true,
           project: projectId,
           location,
         });
-        return {
+        return Promise.resolve({
           models: {
             generateContentStream: mockGenerateContentStream,
           },
-        };
+        });
       });
   });
 
@@ -99,6 +99,7 @@ describe('AiService', () => {
     ).resolves.toEqual({
       reply:
         'AI chat is not configured. Please set GEMINI_PROJECT_ID plus either GEMINI_API_KEY or Google Application Default Credentials.',
+      citations: [],
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -356,7 +357,12 @@ describe('AiService', () => {
     );
 
     await expect(
-      service.generateQuiz('## Level 1\n\nDie Erde ist ein Planet.', 'de', 7, 'Level 1'),
+      service.generateQuiz(
+        '## Level 1\n\nDie Erde ist ein Planet.',
+        'de',
+        7,
+        'Level 1',
+      ),
     ).resolves.toEqual(quizResponse);
 
     const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
@@ -370,7 +376,9 @@ describe('AiService', () => {
     expect(body.messages[0].content[0].text).toContain(
       '<untrusted-data name="SECTION_CONTEXT">',
     );
-    expect(body.messages[0].content[0].text).toContain('Die Erde ist ein Planet');
+    expect(body.messages[0].content[0].text).toContain(
+      'Die Erde ist ein Planet',
+    );
     expect(body.messages[0].content[0].text).toContain('"gradeLevel": 7');
   });
 
@@ -390,7 +398,12 @@ describe('AiService', () => {
     );
 
     await expect(
-      service.generateGlossary('Der Mond umkreist die Erde.', 'de', 5, 'Level 2'),
+      service.generateGlossary(
+        'Der Mond umkreist die Erde.',
+        'de',
+        5,
+        'Level 2',
+      ),
     ).resolves.toEqual(glossaryResponse);
 
     const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
@@ -398,7 +411,9 @@ describe('AiService', () => {
     expect(body.system).toContain('glossary editor');
     expect(body.system).toContain('Select exactly 10 important terms');
     expect(body.system).toContain('Security rules:');
-    expect(body.messages[0].content[0].text).toContain('Der Mond umkreist die Erde');
+    expect(body.messages[0].content[0].text).toContain(
+      'Der Mond umkreist die Erde',
+    );
   });
 
   it('rejects malformed structured quiz responses', async () => {
@@ -499,7 +514,7 @@ describe('AiService', () => {
           { role: 'assistant', content: 'Earlier answer' },
         ],
       ),
-    ).resolves.toEqual({ reply: 'Gemini reply' });
+    ).resolves.toEqual({ reply: 'Gemini reply', citations: [] });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-2.0-flash-001:generateContent',
@@ -606,7 +621,12 @@ describe('AiService', () => {
   });
 
   it('streams chat chunks from Gemini ADC', async () => {
-    mockGeminiResponse(['Hallo', ' Welt']);
+    mockGeminiResponse([
+      'Hallo Welt\n<CHAT_',
+      'CITATIONS_JSON>{"ids":["article-2",',
+      '"unknown","article-2"]}</CHAT_CITATIONS_',
+      'JSON>',
+    ]);
     const service = new AiService(
       createConfigService({
         AI_PROVIDER: 'gemini',
@@ -620,6 +640,10 @@ describe('AiService', () => {
         chatArticle({
           content: 'Artikelinhalt',
           infoboxContent: 'Erstbesteigung: 1865',
+          segments: [
+            { id: 'article-1', text: 'Das Matterhorn ist ein Berg.' },
+            { id: 'article-2', text: 'Die Erstbesteigung war 1865.' },
+          ],
         }),
         'Was ist das?',
         [],
@@ -627,9 +651,10 @@ describe('AiService', () => {
           chunks.push(chunk);
         },
       ),
-    ).resolves.toEqual({ reply: 'Hallo Welt' });
+    ).resolves.toEqual({ reply: 'Hallo Welt', citations: ['article-2'] });
 
-    expect(chunks).toEqual(['Hallo', ' Welt']);
+    expect(chunks.join('')).toBe('Hallo Welt');
+    expect(chunks.join('')).not.toContain('CHAT_CITATIONS');
     const expectedContents = expect.arrayContaining([
       expect.objectContaining({
         parts: [{ text: 'Was ist das?' }],
@@ -641,7 +666,7 @@ describe('AiService', () => {
         contents: expectedContents,
         config: expect.objectContaining({
           systemInstruction: expect.stringContaining(
-            'When helpful in this case only, suggest one concise alternative Wikipedia search term',
+            '<CHAT_CITATIONS_JSON>{"ids":["segment-id"]}',
           ) as unknown,
         }) as Record<string, unknown>,
       }),

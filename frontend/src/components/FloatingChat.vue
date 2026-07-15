@@ -28,6 +28,20 @@
           :bg-color="msg.role === 'user' ? 'primary' : 'grey-3'" :text-color="msg.role === 'user' ? 'white' : 'dark'">
           <div class="chat-message-content">
             <q-markdown :src="msg.content" class="chat-markdown" no-html no-heading-anchor-links />
+            <div v-if="msg.role === 'assistant' && msg.citations?.length" class="chat-citations"
+              :class="{ 'chat-citations--active': store.activeChatMessageId === msg.id }">
+              <span class="chat-citations-label">{{ $t('chat.sources') }}</span>
+              <q-btn v-for="(citationId, citationIndex) in msg.citations" :key="citationId" dense rounded no-caps
+                size="sm" icon="article" :label="$t('chat.source', { number: citationIndex + 1 })"
+                :outline="store.focusedCitationId !== citationId || store.activeChatMessageId !== msg.id"
+                :unelevated="store.focusedCitationId === citationId && store.activeChatMessageId === msg.id"
+                color="primary" :disable="msg.citationContextKey !== store.chatCitationContextKey"
+                @click="store.activateChatCitations(msg.id, citationId)">
+                <q-tooltip v-if="msg.citationContextKey !== store.chatCitationContextKey">
+                  {{ $t('chat.sourceUnavailable') }}
+                </q-tooltip>
+              </q-btn>
+            </div>
             <div v-if="msg.role === 'assistant' && msg.content.trim()" class="chat-message-actions">
               <q-btn flat round dense icon="content_copy" size="sm" :aria-label="$t('chat.copyAnswer')"
                 @click="copyAnswerToClipboard(msg.content)">
@@ -217,6 +231,26 @@ export default defineComponent({
 
 .chat-message-content {
   display: block;
+}
+
+.chat-citations {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(82, 40, 129, 0.12);
+}
+
+.chat-citations--active {
+  border-top-color: var(--q-primary);
+}
+
+.chat-citations-label {
+  color: var(--kp-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .chat-message-actions {

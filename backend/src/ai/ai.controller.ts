@@ -12,6 +12,7 @@ import {
   CEFR_LEVELS,
   GRADE_LEVELS,
   type ChatArticleContext,
+  type ChatArticleSegment,
   type ChatMessage,
   type CefrLevel,
   type GradeLevel,
@@ -34,6 +35,7 @@ interface ChatDto {
   isOriginalArticle?: unknown;
   message?: unknown;
   history?: unknown;
+  segments?: unknown;
 }
 
 interface TranslateDto {
@@ -56,6 +58,10 @@ const MAX_TEXT_LENGTH = 1_000_000;
 const MAX_CHAT_MESSAGE_LENGTH = 4_000;
 const MAX_CHAT_HISTORY_MESSAGES = 20;
 const MAX_CHAT_HISTORY_MESSAGE_LENGTH = 4_000;
+const MAX_CHAT_SEGMENTS = 2_000;
+const MAX_CHAT_SEGMENT_ID_LENGTH = 80;
+const MAX_CHAT_SEGMENT_TEXT_LENGTH = 5_000;
+const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 1_000_000;
 const MAX_LANGUAGE_CODE_LENGTH = 20;
 const MAX_SECTION_TITLE_LENGTH = 200;
 
@@ -176,7 +182,7 @@ export class AiController {
       }
     };
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -189,17 +195,21 @@ export class AiController {
     res.on('close', abortStream);
 
     try {
-      await this.aiService.chatStream(
+      const result = await this.aiService.chatStream(
         chatRequest.article,
         chatRequest.message,
         chatRequest.history,
         (chunk) => {
           chunkCount += 1;
           writtenChars += chunk.length;
-          res.write(chunk);
+          res.write(`${JSON.stringify({ type: 'delta', text: chunk })}\n`);
         },
         abortController.signal,
       );
+      res.write(
+        `${JSON.stringify({ type: 'citations', ids: result.citations })}\n`,
+      );
+      res.write(`${JSON.stringify({ type: 'done' })}\n`);
       res.end();
     } catch (error) {
       if (abortController.signal.aborted) {
@@ -387,6 +397,7 @@ export class AiController {
           'isOriginalArticle',
           true,
         ),
+        segments: this.validateChatSegments(body.segments),
       },
       message: this.validateRequiredString(
         body.message,
@@ -395,6 +406,60 @@ export class AiController {
       ),
       history: this.validateChatHistory(body.history),
     };
+  }
+
+  private validateChatSegments(value: unknown): ChatArticleSegment[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+    if (!Array.isArray(value)) {
+      throw new BadRequestException('Field "segments" must be an array');
+    }
+    if (value.length > MAX_CHAT_SEGMENTS) {
+      throw new BadRequestException(
+        `Field "segments" must contain at most ${MAX_CHAT_SEGMENTS} entries`,
+      );
+    }
+
+    let totalLength = 0;
+    const seenIds = new Set<string>();
+    return value.map((entry, index) => {
+      if (typeof entry !== 'object' || entry === null) {
+        throw new BadRequestException(
+          `Field "segments[${index}]" must include an id and text`,
+        );
+      }
+      const segment = entry as { id?: unknown; text?: unknown };
+      const id = this.validateRequiredString(
+        segment.id,
+        `segments[${index}].id`,
+        MAX_CHAT_SEGMENT_ID_LENGTH,
+      );
+      if (!/^[a-z][a-z0-9-]*$/.test(id)) {
+        throw new BadRequestException(
+          `Field "segments[${index}].id" has an invalid format`,
+        );
+      }
+      if (seenIds.has(id)) {
+        throw new BadRequestException(
+          `Field "segments" contains duplicate ids`,
+        );
+      }
+      seenIds.add(id);
+
+      const text = this.validateRequiredString(
+        segment.text,
+        `segments[${index}].text`,
+        MAX_CHAT_SEGMENT_TEXT_LENGTH,
+      ).trim();
+      totalLength += text.length;
+      if (totalLength > MAX_CHAT_SEGMENTS_TOTAL_LENGTH) {
+        throw new BadRequestException(
+          `Field "segments" must contain at most ${MAX_CHAT_SEGMENTS_TOTAL_LENGTH} characters`,
+        );
+      }
+      return { id, text };
+    });
   }
 
   private validateTranslateBody(body: TranslateDto): {

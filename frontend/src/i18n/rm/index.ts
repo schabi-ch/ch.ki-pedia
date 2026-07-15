@@ -350,6 +350,9 @@ export default {
     collapse: 'Empitschnir la fanestra da chat',
     you: 'Ti',
     assistant: 'ki-pedia',
+    sources: 'Funtaunas',
+    source: 'Funtauna {number}',
+    sourceUnavailable: 'Questa funtauna tutga tar in’autra versiun da l’artitgel.',
   },
   preview: {
     label: 'Versiun da prevista:',

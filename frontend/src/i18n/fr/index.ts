@@ -350,6 +350,9 @@ export default {
     collapse: 'Réduire la fenêtre de discussion',
     you: 'Vous',
     assistant: 'ki-pedia',
+    sources: 'Sources',
+    source: 'Source {number}',
+    sourceUnavailable: 'Cette source appartient à une autre version de l’article.',
   },
   preview: {
     label: 'Version préliminaire :',

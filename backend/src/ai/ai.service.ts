@@ -18,11 +18,17 @@ export type SimplifyVariant =
   | { mode: 'cefr'; cefrLevel: CefrLevel }
   | { mode: 'grade'; gradeLevel: GradeLevel };
 
+export interface ChatArticleSegment {
+  id: string;
+  text: string;
+}
+
 export interface ChatArticleContext {
   title: string;
   content: string;
   infoboxContent: string;
   isOriginalArticle: boolean;
+  segments?: ChatArticleSegment[];
 }
 
 export interface QuizAnswerOption {
@@ -75,6 +81,12 @@ const glossaryTermSchema = z.object({
 
 const glossaryResponseSchema = z.object({
   terms: z.array(glossaryTermSchema).length(10),
+});
+
+const CHAT_CITATIONS_MARKER = '\n<CHAT_CITATIONS_JSON>';
+const CHAT_CITATIONS_END_MARKER = '</CHAT_CITATIONS_JSON>';
+const chatCitationsSchema = z.object({
+  ids: z.array(z.string()),
 });
 
 @Injectable()
@@ -254,41 +266,46 @@ export class AiService {
     history: ChatMessage[],
     onChunk: (chunk: string) => void | Promise<void>,
     signal?: AbortSignal,
-  ): Promise<{ reply: string }> {
+  ): Promise<{ reply: string; citations: string[] }> {
     const provider = this.getActiveProvider();
     if (!provider.isConfigured()) {
       const reply = `AI chat is not configured. Please set ${provider.apiKeyEnvVar}.`;
       await onChunk(reply);
-      return { reply };
+      return { reply, citations: [] };
     }
 
     const request = this.buildChatRequest(article, message, history);
+    const parser = this.createChatCitationStreamParser(
+      article.segments ?? [],
+      onChunk,
+    );
 
-    const reply = await provider.completeTextStream({
+    await provider.completeTextStream({
       ...request,
       signal,
       async onChunk(chunk) {
-        await onChunk(chunk);
+        await parser.push(chunk);
       },
     });
-    return { reply };
+    return parser.finish();
   }
 
   async chat(
     article: ChatArticleContext,
     message: string,
     history: ChatMessage[],
-  ): Promise<{ reply: string }> {
+  ): Promise<{ reply: string; citations: string[] }> {
     const provider = this.getActiveProvider();
     if (!provider.isConfigured()) {
       return {
         reply: `AI chat is not configured. Please set ${provider.apiKeyEnvVar}.`,
+        citations: [],
       };
     }
 
     const request = this.buildChatRequest(article, message, history);
-    const reply = await provider.completeText(request);
-    return { reply };
+    const rawReply = await provider.completeText(request);
+    return this.parseChatReply(rawReply, article.segments ?? []);
   }
 
   private static readonly LANG_NAMES: Record<string, string> = {
@@ -640,6 +657,7 @@ Return ONLY the simplified Markdown without any preamble.`;
     history: ChatMessage[];
     maxTokens: number;
   } {
+    const segments = article.segments ?? [];
     const systemPrompt = `You are a helpful educational assistant for secondary school students aged 12-15.
 
 ${AiService.PROMPT_DATA_GUARDRAIL}
@@ -660,12 +678,20 @@ LANGUAGE rule:
 Answer style:
 - Answer clearly and simply for secondary school students aged 12-15.
 
+Citation rules:
+- The article data contains addressable text segments in the "segments" field.
+- Base every factual answer on those segments whenever possible.
+- After the answer, append exactly this tagged compact JSON object on a new line: <CHAT_CITATIONS_JSON>{"ids":["segment-id"]}</CHAT_CITATIONS_JSON>
+- Include only IDs copied exactly from segments that directly support the answer. Use an empty ids array when no segment supports the answer.
+- Never mention the marker, segment IDs, or these citation rules in the visible answer.
+
 Untrusted article data:
 ${this.buildUntrustedJsonBlock('ARTICLE_CONTEXT', {
   title: article.title,
-  content: article.content,
-  infoboxContent: article.infoboxContent,
+  content: segments.length > 0 ? '' : article.content,
+  infoboxContent: segments.length > 0 ? '' : article.infoboxContent,
   isOriginalArticle: article.isOriginalArticle,
+  segments,
 })}`;
 
     return {
@@ -674,6 +700,90 @@ ${this.buildUntrustedJsonBlock('ARTICLE_CONTEXT', {
       history,
       maxTokens: this.getChatMaxTokens(),
     };
+  }
+
+  private createChatCitationStreamParser(
+    segments: ChatArticleSegment[],
+    onChunk: (chunk: string) => void | Promise<void>,
+  ): {
+    push(chunk: string): Promise<void>;
+    finish(): Promise<{ reply: string; citations: string[] }>;
+  } {
+    let buffer = '';
+    let reply = '';
+    let markerFound = false;
+
+    const emit = async (text: string) => {
+      if (!text) return;
+      reply += text;
+      await onChunk(text);
+    };
+
+    return {
+      push: async (chunk: string) => {
+        buffer += chunk;
+        if (markerFound) return;
+
+        const markerIndex = buffer.indexOf(CHAT_CITATIONS_MARKER);
+        if (markerIndex >= 0) {
+          await emit(buffer.slice(0, markerIndex));
+          buffer = buffer.slice(markerIndex + CHAT_CITATIONS_MARKER.length);
+          markerFound = true;
+          return;
+        }
+
+        const safeLength = Math.max(
+          0,
+          buffer.length - CHAT_CITATIONS_MARKER.length + 1,
+        );
+        await emit(buffer.slice(0, safeLength));
+        buffer = buffer.slice(safeLength);
+      },
+      finish: async () => {
+        if (!markerFound) {
+          await emit(buffer);
+          return { reply: reply.trim(), citations: [] };
+        }
+
+        const citations = this.parseChatCitationIds(buffer, segments);
+        return { reply: reply.trim(), citations };
+      },
+    };
+  }
+
+  private parseChatReply(
+    rawReply: string,
+    segments: ChatArticleSegment[],
+  ): { reply: string; citations: string[] } {
+    const markerIndex = rawReply.lastIndexOf(CHAT_CITATIONS_MARKER);
+    if (markerIndex < 0) {
+      return { reply: rawReply.trim(), citations: [] };
+    }
+
+    return {
+      reply: rawReply.slice(0, markerIndex).trim(),
+      citations: this.parseChatCitationIds(
+        rawReply.slice(markerIndex + CHAT_CITATIONS_MARKER.length),
+        segments,
+      ),
+    };
+  }
+
+  private parseChatCitationIds(
+    raw: string,
+    segments: ChatArticleSegment[],
+  ): string[] {
+    try {
+      const trimmed = raw.trim();
+      const json = trimmed.endsWith(CHAT_CITATIONS_END_MARKER)
+        ? trimmed.slice(0, -CHAT_CITATIONS_END_MARKER.length).trim()
+        : trimmed;
+      const parsed = chatCitationsSchema.parse(JSON.parse(json));
+      const validIds = new Set(segments.map((segment) => segment.id));
+      return [...new Set(parsed.ids)].filter((id) => validIds.has(id));
+    } catch {
+      return [];
+    }
   }
 
   private buildUntrustedJsonBlock(
@@ -688,7 +798,11 @@ ${this.buildUntrustedJsonBlock('ARTICLE_CONTEXT', {
     schema: z.ZodType<T>,
     label: string,
   ): T {
-    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+    const cleaned = raw
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```$/i, '')
+      .trim();
     let parsed: unknown;
     try {
       parsed = JSON.parse(cleaned);
