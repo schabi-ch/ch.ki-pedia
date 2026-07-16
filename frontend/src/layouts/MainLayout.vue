@@ -6,14 +6,7 @@
 
 
           <div class="header-title-text">
-            ki<span style="color: #D3C6E1;">-pedia</span>.
-            <!-- <span style="color: #D3C6E1;">ki</span>-pedia<span style="color: #D3C6E1;">.</span> -->
-            <!-- <template v-if="branding.isKiPediaBrand">
-              <span style="color: #A58AC5;">wi</span>ki-pedia<span style="color: #A58AC5;">.</span>
-            </template>
-<template v-else>
-              {{ branding.headerLogo }}<span style="color: #A58AC5;">.</span>
-            </template> -->
+            {{ branding.logoPrefix }}<span class="header-title-accent">-pedia</span>.
           </div>
         </router-link>
 
@@ -481,6 +474,10 @@ export default defineComponent({
   line-height: 1;
   letter-spacing: -0.02em;
   color: #ffffff;
+}
+
+.header-title-accent {
+  color: #d3c6e1;
 }
 
 .header-search {

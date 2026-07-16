@@ -38,14 +38,7 @@
     <div class="hero-section" v-if="!store.searchQuery">
       <div class="col-12 col-md-8 text-center hero-content">
         <div class="hero-title text-primary q-mb-lg">
-          ki<span style="color: #D3C6E1;">-pedia</span>.
-          <!-- <span style="color: #D3C6E1;">ki</span>-pedia<span style="color: #D3C6E1;">.</span> -->
-          <!-- <template v-if="branding.isKiPediaBrand">
-            <span style="color: #CED1EC;">wi</span>ki-pedia<span style="color: #CED1EC;">.</span>
-          </template>
-          <template v-else>
-            {{ branding.heroLogo }}<span style="color: #CED1EC;">.</span>
-          </template> -->
+          {{ branding.logoPrefix }}<span class="hero-title-accent">-pedia</span>.
         </div>
 
         <!-- <div class="hero-tagline q-mb-xl">
@@ -145,7 +138,7 @@ export default defineComponent({
     const store = useWikipediaStore();
     const { locale } = useI18n({ useScope: 'global' });
     const branding = resolveCurrentBranding();
-    const brandName = 'ki-pedia'; //branding.isKiPediaBrand ? 'ki-pedia' : 'wikiped-ia';
+    const brandName = branding.brandName;
     const showRomanshNotice = computed(() => locale.value === 'rm');
     const {
       suggestions,
@@ -253,6 +246,10 @@ export default defineComponent({
   font-size: 4.2rem;
   letter-spacing: -0.02em;
   line-height: 1.1;
+}
+
+.hero-title-accent {
+  color: #d3c6e1;
 }
 
 .hero-tagline {

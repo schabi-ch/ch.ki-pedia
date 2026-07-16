@@ -83,7 +83,7 @@ const glossaryResponseSchema = z.object({
   terms: z.array(glossaryTermSchema).length(10),
 });
 
-const CHAT_CITATIONS_MARKER = '\n<CHAT_CITATIONS_JSON>';
+const CHAT_CITATIONS_MARKER = '<CHAT_CITATIONS_JSON>';
 const CHAT_CITATIONS_END_MARKER = '</CHAT_CITATIONS_JSON>';
 const chatCitationsSchema = z.object({
   ids: z.array(z.string()),
@@ -775,9 +775,10 @@ ${this.buildUntrustedJsonBlock('ARTICLE_CONTEXT', {
   ): string[] {
     try {
       const trimmed = raw.trim();
-      const json = trimmed.endsWith(CHAT_CITATIONS_END_MARKER)
+      const taggedJson = trimmed.endsWith(CHAT_CITATIONS_END_MARKER)
         ? trimmed.slice(0, -CHAT_CITATIONS_END_MARKER.length).trim()
         : trimmed;
+      const json = taggedJson.replace(/[“”„‟]/g, '"');
       const parsed = chatCitationsSchema.parse(JSON.parse(json));
       const validIds = new Set(segments.map((segment) => segment.id));
       return [...new Set(parsed.ids)].filter((id) => validIds.has(id));

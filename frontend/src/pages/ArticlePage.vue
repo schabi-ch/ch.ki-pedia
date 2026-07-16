@@ -275,6 +275,7 @@ import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article
 import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-sections';
 import { assignCitationSegments, citationContextKey } from 'src/utils/article-citations';
+import { resolveCurrentBranding } from 'src/utils/branding';
 
 const CEFR_BUTTON_ORDER: CefrSliderLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'original'];
 const ARTICLE_HISTORY_STATE_KEY = 'ki-pedia.article-view';
@@ -336,6 +337,7 @@ export default defineComponent({
     const i18n = useI18n();
     const { t, locale } = i18n;
     const $q = useQuasar();
+    const branding = resolveCurrentBranding();
     const chatOpen = ref(false);
     const infoboxOpen = ref(true);
     const levelSliderOpen = ref(false);
@@ -675,7 +677,7 @@ export default defineComponent({
     watch(
       () => displayArticleTitle.value,
       (title) => {
-        document.title = title ? `${title} – ki-pedia` : 'ki-pedia';
+        document.title = title ? `${title} – ${branding.pageTitle}` : branding.pageTitle;
       },
       { immediate: true },
     );
@@ -684,7 +686,7 @@ export default defineComponent({
       window.removeEventListener('scroll', onViewportChange);
       window.removeEventListener('resize', onViewportChange);
       window.removeEventListener('popstate', onArticleHistoryPopState);
-      document.title = 'ki-pedia';
+      document.title = branding.pageTitle;
     });
 
     function closeLevelSlider () {

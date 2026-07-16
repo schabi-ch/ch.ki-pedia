@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>wikiped-IA</title>
+    <title>ki-pedia.</title>
 
     <meta charset="utf-8">
     <meta name="description" content="<%= productDescription %>">
@@ -17,7 +17,12 @@
     <script>
       (function () {
         var hostname = window.location.hostname.toLowerCase().replace(/^www\./, '');
-        var title = hostname === 'ki-pedia.ch' || hostname === 'ki-pedia.org' ? 'ki-pedia' : 'wikiped-IA';
+        var iaPediaHosts = ['ia-pedia.ch', 'ia-pedia.org', 'wikiped-ia.ch', 'wikiped-ia.org'];
+        var title = iaPediaHosts.includes(hostname)
+          ? 'ia-pedia.'
+          : hostname === 'ai-pedia.ch'
+            ? 'ai-pedia.'
+            : 'ki-pedia.';
         document.title = title;
       })();
     </script>

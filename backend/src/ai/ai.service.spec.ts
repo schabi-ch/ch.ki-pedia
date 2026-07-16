@@ -622,9 +622,9 @@ describe('AiService', () => {
 
   it('streams chat chunks from Gemini ADC', async () => {
     mockGeminiResponse([
-      'Hallo Welt\n<CHAT_',
-      'CITATIONS_JSON>{"ids":["article-2",',
-      '"unknown","article-2"]}</CHAT_CITATIONS_',
+      'Hallo Welt<CHAT_',
+      'CITATIONS_JSON>{“ids”:[“article-2”,',
+      '“unknown”,“article-2”]}</CHAT_CITATIONS_',
       'JSON>',
     ]);
     const service = new AiService(
