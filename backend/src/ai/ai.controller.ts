@@ -209,6 +209,9 @@ export class AiController {
       res.write(
         `${JSON.stringify({ type: 'citations', ids: result.citations })}\n`,
       );
+      if (result.action) {
+        res.write(`${JSON.stringify({ type: 'action', action: result.action })}\n`);
+      }
       res.write(`${JSON.stringify({ type: 'done' })}\n`);
       res.end();
     } catch (error) {

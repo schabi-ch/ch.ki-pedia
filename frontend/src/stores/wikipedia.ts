@@ -140,11 +140,13 @@ export interface ChatMessage {
   content: string;
   citations?: string[];
   citationContextKey?: string;
+  originalArticleQuestion?: string;
 }
 
 type ChatStreamEvent =
   | { type: 'delta'; text: string }
   | { type: 'citations'; ids: string[] }
+  | { type: 'action'; action: 'ask-original' }
   | { type: 'done' };
 
 export interface QuizAnswerOption {
@@ -257,6 +259,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
   const chatCitationContextKey = ref('');
   const activeChatMessageId = ref<string | null>(null);
   const focusedCitationId = ref<string | null>(null);
+  const chatCitationActivationId = ref(0);
   let chatAbortController: AbortController | null = null;
   let chatRunId = 0;
   let chatMessageId = 0;
@@ -383,6 +386,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     }
     activeChatMessageId.value = messageId;
     focusedCitationId.value = citationId ?? message.citations[0] ?? null;
+    chatCitationActivationId.value += 1;
   }
 
   function clearActiveChatCitations() {
@@ -798,6 +802,8 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
           if (assistantMessage.citations.length > 0 && citationContext === chatCitationContextKey.value) {
             activateChatCitations(assistantMessageId);
           }
+        } else if (event.type === 'action' && event.action === 'ask-original') {
+          assistantMessage.originalArticleQuestion = message;
         }
       };
       while (true) {
@@ -826,7 +832,10 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
       console.error('Chat stream error:', err);
       const assistantMessage = chatMessages.value.find((entry) => entry.id === assistantMessageId);
       if (assistantMessage?.role === 'assistant') {
-        assistantMessage.content = 'Sorry, something went wrong. Please try again.';
+        assistantMessage.content = getLocalizedMessage(
+          'chat.error',
+          'Sorry, something went wrong. Please try again.',
+        );
       }
     } finally {
       if (runId === chatRunId) {
@@ -1132,6 +1141,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     chatCitationContextKey,
     activeChatMessageId,
     focusedCitationId,
+    chatCitationActivationId,
     tocOpen,
     setTocOpen,
     toggleToc,

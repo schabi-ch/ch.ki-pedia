@@ -351,8 +351,10 @@ export default {
     you: 'You',
     assistant: 'ki-pedia',
     sources: 'Sources',
-    source: 'Source {number}',
+    source: 'Section {number}',
     sourceUnavailable: 'This source belongs to a different article version.',
+    askInOriginalArticle: 'Ask again in the original article',
+    error: 'Sorry, something went wrong. Please try again.',
   },
   preview: {
     label: 'Preview:',

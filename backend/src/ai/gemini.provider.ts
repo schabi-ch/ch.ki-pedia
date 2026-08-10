@@ -390,14 +390,20 @@ export class GeminiProvider implements AiProvider {
     projectId: string,
     location: string,
   ): string {
-    return `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${this.getModel()}:generateContent`;
+    return `https://${this.getVertexApiHost(location)}/v1/projects/${projectId}/locations/${location}/publishers/google/models/${this.getModel()}:generateContent`;
   }
 
   private getVertexStreamGenerateContentUrl(
     projectId: string,
     location: string,
   ): string {
-    return `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${this.getModel()}:streamGenerateContent?alt=sse`;
+    return `https://${this.getVertexApiHost(location)}/v1/projects/${projectId}/locations/${location}/publishers/google/models/${this.getModel()}:streamGenerateContent?alt=sse`;
+  }
+
+  private getVertexApiHost(location: string): string {
+    return location === 'global'
+      ? 'aiplatform.googleapis.com'
+      : `${location}-aiplatform.googleapis.com`;
   }
 
   private getApiKey(): string | undefined {

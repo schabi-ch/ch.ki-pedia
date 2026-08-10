@@ -42,7 +42,7 @@
               Stanley Schwab, Education Expert and Consultant Wikimedia CH
             </p>
 
-            <h2>Gestaltung:</h2>
+            <h2>Programmierung & Gestaltung:</h2>
             <p>Christof Müller, Schabi.ch</p>
 
             <h2>Redaktion:</h2>

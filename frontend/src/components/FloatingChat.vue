@@ -31,8 +31,8 @@
             <div v-if="msg.role === 'assistant' && msg.citations?.length" class="chat-citations"
               :class="{ 'chat-citations--active': store.activeChatMessageId === msg.id }">
               <span class="chat-citations-label">{{ $t('chat.sources') }}</span>
-              <q-btn v-for="(citationId, citationIndex) in msg.citations" :key="citationId" dense rounded no-caps
-                size="sm" icon="article" :label="$t('chat.source', { number: citationIndex + 1 })"
+              <q-btn v-for="citationId in msg.citations" :key="citationId" dense rounded no-caps size="sm"
+                icon="article" :label="$t('chat.source', { number: citationNumber(citationId) })"
                 :outline="store.focusedCitationId !== citationId || store.activeChatMessageId !== msg.id"
                 :unelevated="store.focusedCitationId === citationId && store.activeChatMessageId === msg.id"
                 color="primary" :disable="msg.citationContextKey !== store.chatCitationContextKey"
@@ -42,6 +42,9 @@
                 </q-tooltip>
               </q-btn>
             </div>
+            <q-btn v-if="msg.role === 'assistant' && msg.originalArticleQuestion" unelevated no-caps color="primary"
+              icon="article" class="chat-original-action" :label="$t('chat.askInOriginalArticle')"
+              @click="$emit('ask-original', msg.originalArticleQuestion)" />
             <div v-if="msg.role === 'assistant' && msg.content.trim()" class="chat-message-actions">
               <q-btn flat round dense icon="content_copy" size="sm" :aria-label="$t('chat.copyAnswer')"
                 @click="copyAnswerToClipboard(msg.content)">
@@ -86,7 +89,7 @@ export default defineComponent({
     QMarkdown,
   },
 
-  emits: ['close'],
+  emits: ['close', 'ask-original'],
 
   setup () {
     const store = useWikipediaStore();
@@ -127,6 +130,10 @@ export default defineComponent({
   },
 
   methods: {
+    citationNumber (citationId: string) {
+      return citationId.match(/-(\d+)$/)?.[1] ?? citationId;
+    },
+
     scrollChatToBottom () {
       void nextTick(() => {
         const ref = this.$refs.chatContainer as { $el?: HTMLElement } | HTMLElement | undefined;
@@ -258,6 +265,11 @@ export default defineComponent({
   justify-content: flex-end;
   width: 100%;
   margin-top: 6px;
+}
+
+.chat-original-action {
+  margin-top: 10px;
+  border-radius: 8px;
 }
 
 .chat-input :deep(textarea) {

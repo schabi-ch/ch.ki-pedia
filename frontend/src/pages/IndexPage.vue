@@ -1,14 +1,14 @@
 <template>
   <q-page class="q-pa-md">
 
-    <q-banner class="preview-banner" rounded>
+    <!-- <q-banner class="preview-banner" rounded>
       <template v-slot:avatar>
         <q-icon name="construction" color="warning" />
       </template>
-      <span class="preview-banner-text">
-        <strong>{{ $t('preview.label') }}</strong> {{ $t('preview.message') }}
-      </span>
-    </q-banner>
+<span class="preview-banner-text">
+  <strong>{{ $t('preview.label') }}</strong> {{ $t('preview.message') }}
+</span>
+</q-banner> -->
 
     <q-banner v-if="showRomanshNotice" class="preview-banner romansh-notice-banner" rounded>
       <template v-slot:avatar>

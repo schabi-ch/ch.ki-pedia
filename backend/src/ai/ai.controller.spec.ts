@@ -24,7 +24,11 @@ describe('AiController statistics instrumentation', () => {
             onChunk: (chunk: string) => void | Promise<void>,
           ) => {
             await onChunk('answer');
-            return { reply: 'answer', citations: ['article-1'] };
+            return {
+              reply: 'answer',
+              citations: ['article-1'],
+              action: 'ask-original' as const,
+            };
           },
         ),
       translate: jest.fn().mockResolvedValue({ translated: 'traduit' }),
@@ -320,6 +324,7 @@ describe('AiController statistics instrumentation', () => {
     expect(written.map((line) => JSON.parse(line) as unknown)).toEqual([
       { type: 'delta', text: 'answer' },
       { type: 'citations', ids: ['article-1'] },
+      { type: 'action', action: 'ask-original' },
       { type: 'done' },
     ]);
     expect(end).toHaveBeenCalled();

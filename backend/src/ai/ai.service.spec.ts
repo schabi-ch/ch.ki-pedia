@@ -550,9 +550,9 @@ describe('AiService', () => {
     expect(systemInstruction).toContain(
       'Do NOT suggest another Wikipedia article, another Wikipedia search term, or contributing to Wikipedia in this case',
     );
-    expect(systemInstruction).toContain(
-      'Vielleicht findet sich die Information im Original-Artikel',
-    );
+    expect(systemInstruction).not.toContain('Vielleicht findet sich');
+    expect(systemInstruction).toContain('the same language as the student\'s question');
+    expect(systemInstruction).toContain('"action":"ask-original"');
     expect(body.generationConfig?.maxOutputTokens).toBe(2048);
     expect(body.generationConfig?.thinkingConfig).toEqual({
       thinkingBudget: 0,
@@ -564,6 +564,38 @@ describe('AiService', () => {
     ]);
     expect(body.contents[2].parts[0].text).toBe('What is it?');
     expect(mockGoogleGenAIConstructor).not.toHaveBeenCalled();
+  });
+
+  it('uses the global Vertex endpoint without a location-prefixed host', async () => {
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Gemini reply' }],
+            },
+          },
+        ],
+      }),
+    );
+    const service = new AiService(
+      createConfigService({
+        AI_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'gemini-api-key',
+        GEMINI_PROJECT_ID: 'test-project',
+        GEMINI_LOCATION: 'global',
+        GEMINI_MODEL: 'gemini-3.5-flash-lite',
+      }),
+    );
+
+    await expect(
+      service.chat(chatArticle(), 'What is it?'),
+    ).resolves.toEqual({ reply: 'Gemini reply', citations: [] });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/publishers/google/models/gemini-3.5-flash-lite:generateContent',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('uses ADC for Gemini Vertex AI authentication', async () => {
@@ -624,7 +656,7 @@ describe('AiService', () => {
     mockGeminiResponse([
       'Hallo Welt<CHAT_',
       'CITATIONS_JSON>{“ids”:[“article-2”,',
-      '“unknown”,“article-2”]}</CHAT_CITATIONS_',
+      '“unknown”,“article-2”],“action”:“ask-original”}</CHAT_CITATIONS_',
       'JSON>',
     ]);
     const service = new AiService(
@@ -651,7 +683,11 @@ describe('AiService', () => {
           chunks.push(chunk);
         },
       ),
-    ).resolves.toEqual({ reply: 'Hallo Welt', citations: ['article-2'] });
+    ).resolves.toEqual({
+      reply: 'Hallo Welt',
+      citations: ['article-2'],
+      action: 'ask-original',
+    });
 
     expect(chunks.join('')).toBe('Hallo Welt');
     expect(chunks.join('')).not.toContain('CHAT_CITATIONS');

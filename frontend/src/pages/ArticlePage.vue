@@ -129,7 +129,7 @@
                 <q-tooltip>{{ $t('article.print') }}</q-tooltip>
               </q-btn>
             </div>
-            <div v-if="showInfobox" class="infobox-print">
+            <div v-if="infoboxOpen && showInfobox" class="infobox-print">
               <div class="infobox-header">
                 <div class="infobox-title">Info-Box</div>
               </div>
@@ -167,9 +167,14 @@
                 <section v-for="section in gradeSections" :key="section.id" class="grade-section">
                   <q-markdown :src="section.markdown" class="article-markdown" no-heading-anchor-links />
 
-                  <div v-if="sectionGlossaryTerms(section).length > 0" class="section-glossary">
-                    <div class="section-glossary-title">{{ $t('article.glossary.title') }}</div>
-                    <dl class="section-glossary-list">
+                  <div v-if="sectionGlossaryTerms(section).length > 0" class="section-glossary"
+                    :class="{ 'section-glossary--open': isSectionGlossaryOpen(section) }">
+                    <button type="button" class="section-glossary-toggle"
+                      :aria-expanded="isSectionGlossaryOpen(section)" @click="toggleSectionGlossary(section)">
+                      <span>{{ $t('article.glossary.title') }}</span>
+                      <q-icon :name="isSectionGlossaryOpen(section) ? 'expand_less' : 'expand_more'" size="sm" />
+                    </button>
+                    <dl v-if="isSectionGlossaryOpen(section)" class="section-glossary-list">
                       <div v-for="term in sectionGlossaryTerms(section)" :key="term.term" class="section-glossary-item">
                         <dt>{{ term.term }}</dt>
                         <dd>{{ term.explanation }}</dd>
@@ -256,7 +261,7 @@
         </q-btn>
         <section-quiz-dialog v-model="quizDialogOpen" :questions="activeQuizQuestions"
           :section-title="activeQuizSectionTitle" />
-        <floating-chat v-if="chatOpen" @close="chatOpen = false" />
+        <floating-chat v-if="chatOpen" @close="chatOpen = false" @ask-original="onAskOriginalArticle" />
       </div>
     </div>
   </q-page>
@@ -350,6 +355,7 @@ export default defineComponent({
     const copyLoading = ref(false);
     const wordLoading = ref(false);
     const sectionCopyLoading = ref('');
+    const openSectionGlossaries = ref(new Set<string>());
     const languageSearchQuery = ref('');
     const quizDialogOpen = ref(false);
     const activeQuizSectionKey = ref('');
@@ -646,7 +652,7 @@ export default defineComponent({
     );
 
     watch(
-      () => [store.activeChatMessageId, store.focusedCitationId],
+      () => [store.activeChatMessageId, store.focusedCitationId, store.chatCitationActivationId],
       () => {
         void applyCitationHighlights();
       },
@@ -698,12 +704,23 @@ export default defineComponent({
       void nextTick(updateCancelButtonsVisibility);
     }
 
+    async function onAskOriginalArticle (question: string) {
+      const finishHistoryEntry = rememberArticleVersionForBack();
+      try {
+        store.showOriginalArticle();
+        await rebuildCitationSegments();
+        await store.sendMessage(question);
+      } finally {
+        finishHistoryEntry();
+      }
+    }
+
     async function onCopyToClipboard () {
       const article = store.article;
       if (!article || !store.displayedContent) return;
       copyLoading.value = true;
       try {
-        await copyArticleToClipboard(displayArticleTitle.value, store.displayedContent);
+        await copyArticleToClipboard(displayArticleTitle.value, buildArticleExportMarkdown());
         $q.notify({ type: 'positive', message: t('article.copySuccess') });
       } catch (err) {
         console.error('Copy to clipboard failed', err);
@@ -740,6 +757,24 @@ export default defineComponent({
       return `${displayArticleTitle.value} - ${section.title}`;
     }
 
+    function isSectionGlossaryOpen (section: GradeArticleSection): boolean {
+      return openSectionGlossaries.value.has(sectionKey(section));
+    }
+
+    function setSectionGlossaryOpen (section: GradeArticleSection, open: boolean) {
+      const next = new Set(openSectionGlossaries.value);
+      if (open) {
+        next.add(sectionKey(section));
+      } else {
+        next.delete(sectionKey(section));
+      }
+      openSectionGlossaries.value = next;
+    }
+
+    function toggleSectionGlossary (section: GradeArticleSection) {
+      setSectionGlossaryOpen(section, !isSectionGlossaryOpen(section));
+    }
+
     function escapeMarkdownTableCell (value: string): string {
       return String(value ?? '')
         .replace(/\|/g, '\\|')
@@ -760,25 +795,32 @@ export default defineComponent({
 
     function buildSectionCopyMarkdown (section: GradeArticleSection): string {
       const sectionWithoutHeader = section.bodyMarkdown || section.markdown;
-      const glossaryTable = buildSectionGlossaryTable(section);
+      const glossaryTable = isSectionGlossaryOpen(section) ? buildSectionGlossaryTable(section) : '';
 
       if (!glossaryTable) return sectionWithoutHeader;
       if (!sectionWithoutHeader) return glossaryTable;
       return `${sectionWithoutHeader}\n\n${glossaryTable}`;
     }
 
-    function buildWordExportMarkdown (): string {
+    function buildArticleExportMarkdown (): string {
       if (!showGradeSections.value) {
         return store.displayedContent;
       }
 
       return gradeSections.value
         .map((section) => {
-          const glossaryTable = buildSectionGlossaryTable(section);
+          const glossaryTable = isSectionGlossaryOpen(section) ? buildSectionGlossaryTable(section) : '';
           if (!glossaryTable) return section.markdown;
           return `${section.markdown}\n\n${glossaryTable}`;
         })
         .join('\n\n');
+    }
+
+    function buildWordExportMarkdown (): string {
+      const articleMarkdown = buildArticleExportMarkdown();
+      if (!infoboxOpen.value || !showInfobox.value) return articleMarkdown;
+
+      return `## Info-Box\n\n${store.article?.infoboxHtml ?? ''}\n\n${articleMarkdown}`;
     }
 
     async function onCopySection (section: GradeArticleSection) {
@@ -802,6 +844,7 @@ export default defineComponent({
           text: section.markdown,
           sectionTitle: section.title,
         });
+        setSectionGlossaryOpen(section, true);
         void nextTick(updateCancelButtonsVisibility);
       } catch (err) {
         console.error('Load section glossary failed', err);
@@ -857,6 +900,7 @@ export default defineComponent({
       levelSliderOpen,
       closeLevelSlider,
       onCancelSimplify,
+      onAskOriginalArticle,
       copyLoading,
       wordLoading,
       sectionCopyLoading,
@@ -875,6 +919,8 @@ export default defineComponent({
       onOpenSectionQuiz,
       sectionGlossaryTerms,
       sectionGlossaryLoading,
+      isSectionGlossaryOpen,
+      toggleSectionGlossary,
       sectionQuizLoading,
       tocButtonLabel,
       uiWikiLang,
@@ -1411,22 +1457,48 @@ export default defineComponent({
 
 .section-glossary {
   margin: 18px 0 12px;
-  padding: 14px 16px;
   border: 1px solid rgba(82, 40, 129, 0.08);
   border-radius: 8px;
   background: rgba(82, 40, 129, 0.035);
+  overflow: hidden;
 }
 
-.section-glossary-title {
-  font-weight: 700;
+.section-glossary-toggle {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
   color: var(--kp-text-primary);
-  margin-bottom: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
 }
 
 .section-glossary-list {
   display: grid;
   gap: 10px;
   margin: 0;
+  padding: 0 16px 14px;
+}
+
+@media print {
+  .section-glossary:not(.section-glossary--open) {
+    display: none !important;
+  }
+
+  .section-glossary-toggle {
+    cursor: default;
+  }
+
+  .section-glossary-toggle :deep(.q-icon) {
+    display: none;
+  }
 }
 
 .section-glossary-item {
@@ -1524,6 +1596,16 @@ export default defineComponent({
 .article-html :deep(img) {
   max-width: 100%;
   height: auto;
+}
+
+.article-html :deep(ul.gallery) {
+  max-width: 100%;
+}
+
+.article-html :deep(ul.gallery > li.gallerybox),
+.article-html :deep(ul.gallery > li.gallerybox > .thumb) {
+  max-width: 100% !important;
+  box-sizing: border-box;
 }
 
 .article-html :deep(table) {
@@ -1899,7 +1981,8 @@ figure {
   box-shadow: var(--kp-shadow-sm);
 }
 
-figure img {
+figure img,
+figure video {
   max-width: 100%;
   height: auto;
   display: block;

@@ -351,8 +351,10 @@ export default {
     you: 'Ti',
     assistant: 'ki-pedia',
     sources: 'Funtaunas',
-    source: 'Funtauna {number}',
+    source: 'Secziun {number}',
     sourceUnavailable: 'Questa funtauna tutga tar in’autra versiun da l’artitgel.',
+    askInOriginalArticle: 'Dumandar anc ina giada en l’artitgel original',
+    error: 'Perstgisa, insatge n’ha betg funcziunà. Emprova anc ina giada.',
   },
   preview: {
     label: 'Versiun da prevista:',

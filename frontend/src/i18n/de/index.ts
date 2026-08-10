@@ -1,3 +1,6 @@
+import about from './about';
+import education from './education';
+
 export default {
   failed: 'Aktion fehlgeschlagen',
   success: 'Aktion war erfolgreich',
@@ -20,20 +23,8 @@ export default {
     whatIs: 'Was ist {brandName}?',
     inClass: '{brandName} im Unterricht',
   },
-  education: {
-    title: '{brandName} im Unterricht',
-    lead:
-      '{brandName} unterstützt Lehrpersonen und Lernende dabei, Wikipedia-Inhalte verständlich und quellenbasiert im Unterricht zu nutzen.',
-    forTeachersTitle: 'Für Lehrpersonen',
-    forTeachersBody:
-      'Mit {brandName} können Sie komplexe Wikipedia-Artikel schneller auf die passende Lesestufe bringen und als Grundlage für Aufgaben verwenden.',
-    inClassTitle: 'Einsatz im Klassenzimmer',
-    inClassBody:
-      'Lernende können Artikel lesen, vereinfachen und Fragen direkt zum Inhalt stellen. So bleibt der Bezug zur Originalquelle erhalten.',
-    learningGoalsTitle: 'Lernziele',
-    learningGoalsBody:
-      'Die Arbeit mit Wikipedia fördert Medienkompetenz, Textverständnis und den kritischen Umgang mit KI-generierten Antworten.',
-  },
+  education,
+  about,
   search: {
     placeholder: 'Artikel suchen...',
     button: 'Suchen',
@@ -351,8 +342,10 @@ export default {
     you: 'Du',
     assistant: 'ki-pedia',
     sources: 'Quellen',
-    source: 'Quelle {number}',
+    source: 'Abschnitt {number}',
     sourceUnavailable: 'Diese Quelle gehört zu einer anderen Artikelversion.',
+    askInOriginalArticle: 'Im Original-Artikel nochmals fragen',
+    error: 'Entschuldigung, etwas ist schiefgelaufen. Bitte versuche es erneut.',
   },
   preview: {
     label: 'Vorschau-Version:',
