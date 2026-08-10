@@ -261,7 +261,8 @@
         </q-btn>
         <section-quiz-dialog v-model="quizDialogOpen" :questions="activeQuizQuestions"
           :section-title="activeQuizSectionTitle" />
-        <floating-chat v-if="chatOpen" @close="chatOpen = false" @ask-original="onAskOriginalArticle" />
+        <floating-chat v-if="chatOpen" :can-ask-original="showOriginalArticleButton" @close="chatOpen = false"
+          @ask-original="onAskOriginalArticle" />
       </div>
     </div>
   </q-page>

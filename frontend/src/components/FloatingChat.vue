@@ -42,8 +42,8 @@
                 </q-tooltip>
               </q-btn>
             </div>
-            <q-btn v-if="msg.role === 'assistant' && msg.originalArticleQuestion" unelevated no-caps color="primary"
-              icon="article" class="chat-original-action" :label="$t('chat.askInOriginalArticle')"
+            <q-btn v-if="canAskOriginal && msg.role === 'assistant' && msg.originalArticleQuestion" unelevated no-caps
+              color="primary" icon="article" class="chat-original-action" :label="$t('chat.askInOriginalArticle')"
               @click="$emit('ask-original', msg.originalArticleQuestion)" />
             <div v-if="msg.role === 'assistant' && msg.content.trim()" class="chat-message-actions">
               <q-btn flat round dense icon="content_copy" size="sm" :aria-label="$t('chat.copyAnswer')"
@@ -87,6 +87,13 @@ export default defineComponent({
 
   components: {
     QMarkdown,
+  },
+
+  props: {
+    canAskOriginal: {
+      type: Boolean,
+      default: false,
+    },
   },
 
   emits: ['close', 'ask-original'],
