@@ -108,4 +108,4 @@ export default defineBoot(({ app }) => {
 });
 
 export { api };
-export { getLocalizedMessage, notifySuccess, extractApiErrorMessage };
+export { getLocalizedMessage, notifyError, notifySuccess, extractApiErrorMessage };

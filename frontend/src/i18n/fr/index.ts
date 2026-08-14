@@ -1,3 +1,8 @@
+import about from './about';
+import education from './education';
+import imprintPage from './imprint-page';
+import privacyPage from './privacy-page';
+
 export default {
   failed: 'Action échouée',
   success: "Action réussie",
@@ -20,20 +25,10 @@ export default {
     whatIs: 'Qu’est-ce que {brandName} ?',
     inClass: '{brandName} en classe',
   },
-  education: {
-    title: '{brandName} en classe',
-    lead:
-      '{brandName} aide les enseignantes et enseignants ainsi que les élèves à utiliser les contenus de Wikipédia en classe de manière claire et fondée sur les sources.',
-    forTeachersTitle: 'Pour les enseignantes et enseignants',
-    forTeachersBody:
-      'Avec {brandName}, vous pouvez adapter des articles Wikipédia complexes au niveau de lecture visé et les utiliser pour des activités en classe.',
-    inClassTitle: 'Utilisation en classe',
-    inClassBody:
-      'Les élèves peuvent lire, simplifier et poser des questions directement sur le contenu des articles tout en gardant le lien avec la source originale.',
-    learningGoalsTitle: 'Objectifs pédagogiques',
-    learningGoalsBody:
-      'Le travail avec Wikipédia renforce l’éducation aux médias, la compréhension de texte et l’esprit critique face aux réponses générées par IA.',
-  },
+  education,
+  about,
+  imprintPage,
+  privacyPage,
   search: {
     placeholder: 'Rechercher un article...',
     button: 'Rechercher',
@@ -113,6 +108,8 @@ export default {
     glossary: {
       action: 'Termes importants',
       title: 'Termes importants',
+      term: 'Terme',
+      explanation: 'Explication',
     },
     levels: {
       original: 'Original',
@@ -126,6 +123,7 @@ export default {
     cancelSimplify: 'Arrêter la simplification',
     simplifyCancelledByUser: '... (Interruption par l\'utilisateur)',
     simplifiedDone: 'Le texte a maintenant été reformulé.',
+    simplifyTooLong: 'Cet article est trop long pour être simplifié automatiquement.',
     translating: "Traduction de l'article…",
     cancelTranslate: 'Arrêter la traduction',
     tocTitle: 'Afficher la table des matières',

@@ -1,3 +1,6 @@
+import imprintPage from '../de/imprint-page';
+import privacyPage from '../de/privacy-page';
+
 export default {
   failed: 'Azione fallita',
   success: "L'azione è riuscita",
@@ -34,6 +37,8 @@ export default {
     learningGoalsBody:
       'Lavorare con Wikipedia rafforza l’educazione ai media, la comprensione del testo e il pensiero critico verso risposte generate dall’IA.',
   },
+  imprintPage,
+  privacyPage,
   search: {
     placeholder: 'Cerca un articolo...',
     button: 'Cerca',
@@ -113,6 +118,8 @@ export default {
     glossary: {
       action: 'Termini importanti',
       title: 'Termini importanti',
+      term: 'Termine',
+      explanation: 'Spiegazione',
     },
     levels: {
       original: 'Originale',
@@ -126,6 +133,7 @@ export default {
     cancelSimplify: 'Interrompi la semplificazione',
     simplifyCancelledByUser: '... (Interrotto dall\'utente)',
     simplifiedDone: 'Il testo e stato ora riformulato.',
+    simplifyTooLong: 'Questo articolo e troppo lungo per essere semplificato automaticamente.',
     translating: "Traduzione dell'articolo…",
     cancelTranslate: 'Interrompi la traduzione',
     tocTitle: 'Mostra indice',

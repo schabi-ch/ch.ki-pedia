@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
-const REQUEST_BODY_LIMIT = '2mb';
+// Must comfortably fit MAX_TEXT_LENGTH/MAX_ARTICLE_CONTENT_LENGTH (ai.controller.ts) in
+// UTF-8 (umlauts/accents run ~1.1-1.2 bytes/char) plus JSON overhead.
+const REQUEST_BODY_LIMIT = '8mb';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

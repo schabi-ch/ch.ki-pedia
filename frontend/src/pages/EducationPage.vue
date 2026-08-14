@@ -191,7 +191,7 @@
               <q-icon name="campaign" />
             </div>
             <div>
-              <div class="student-arguments__eyebrow">Für Lernende</div>
+              <div class="student-arguments__eyebrow">{{ $t('education.studentArguments.audience') }}</div>
               <h2 id="student-arguments-title">{{ $t('education.studentArguments.title') }}</h2>
             </div>
           </div>

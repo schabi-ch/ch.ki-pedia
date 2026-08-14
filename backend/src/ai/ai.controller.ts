@@ -52,16 +52,19 @@ interface SectionAiDto {
 }
 
 const MAX_ARTICLE_TITLE_LENGTH = 300;
-const MAX_ARTICLE_CONTENT_LENGTH = 1_000_000;
+// Sized against the active Gemini model's ~1.05M-token input window (minus
+// output/system-prompt budget), not an arbitrary round number - see AI_PROVIDER/GEMINI_MODEL
+// in .env. Revisit if the active provider/model changes to one with a smaller context window.
+const MAX_ARTICLE_CONTENT_LENGTH = 3_000_000;
 const MAX_INFOBOX_CONTENT_LENGTH = 50_000;
-const MAX_TEXT_LENGTH = 1_000_000;
+const MAX_TEXT_LENGTH = 3_000_000;
 const MAX_CHAT_MESSAGE_LENGTH = 4_000;
 const MAX_CHAT_HISTORY_MESSAGES = 20;
 const MAX_CHAT_HISTORY_MESSAGE_LENGTH = 4_000;
 const MAX_CHAT_SEGMENTS = 2_000;
 const MAX_CHAT_SEGMENT_ID_LENGTH = 80;
 const MAX_CHAT_SEGMENT_TEXT_LENGTH = 5_000;
-const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 1_000_000;
+const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 3_000_000;
 const MAX_LANGUAGE_CODE_LENGTH = 20;
 const MAX_SECTION_TITLE_LENGTH = 200;
 

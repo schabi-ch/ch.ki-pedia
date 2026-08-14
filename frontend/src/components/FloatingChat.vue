@@ -224,6 +224,12 @@ export default defineComponent({
   color: inherit;
 }
 
+/* QMarkdown forces near-white text in dark mode (.body--dark .q-markdown),
+   which is unreadable on the fixed light-grey assistant bubble background. */
+.body--dark .chat-markdown {
+  color: inherit;
+}
+
 .chat-markdown :deep(p) {
   margin: 0;
 }

@@ -1,6 +1,6 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { computed, ref } from 'vue';
-import { api, getLocalizedMessage, notifySuccess } from 'boot/axios';
+import { api, getLocalizedMessage, notifyError, notifySuccess } from 'boot/axios';
 import { LocalStorage } from 'quasar';
 import { getVersion, setVersion } from './article-cache';
 import { infoboxHtmlToText } from 'src/utils/infobox-text';
@@ -11,7 +11,9 @@ const TOC_OPEN_STORAGE_KEY = 'ki-pedia-article-toc-open';
 const FONT_SIZE_STORAGE_KEY = 'ki-pedia-font-size';
 const FONT_FAMILY_STORAGE_KEY = 'ki-pedia-font-family';
 const MAX_CHAT_SEGMENTS = 2_000;
-const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 1_000_000;
+// Must match MAX_TEXT_LENGTH / MAX_CHAT_SEGMENTS_TOTAL_LENGTH in backend/src/ai/ai.controller.ts.
+const MAX_CHAT_SEGMENTS_TOTAL_LENGTH = 3_000_000;
+const MAX_SIMPLIFY_TEXT_LENGTH = 3_000_000;
 
 export type FontSizeLevel = 'standard' | 'large' | 'x-large';
 export type FontFamily = 'standard' | 'luciole' | 'open-dyslexic';
@@ -563,6 +565,16 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     const sourceText =
       getVersion(article.value.title, articleLang.value, 'original') ??
       article.value.contentMarkdown;
+    if (sourceText.length > MAX_SIMPLIFY_TEXT_LENGTH) {
+      simplifySourceText.value = '';
+      notifyError(
+        getLocalizedMessage(
+          'article.simplifyTooLong',
+          'This article is too long to be simplified automatically.',
+        ),
+      );
+      return;
+    }
     await streamSimplifiedContent({
       sourceText,
       sourceLang: articleLang.value,
@@ -960,6 +972,14 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
 
       if (!response.ok) {
         const details = await response.text().catch(() => '');
+        if (response.status === 400 && /must be at most \d+ characters/i.test(details)) {
+          notifyError(
+            getLocalizedMessage(
+              'article.simplifyTooLong',
+              'This article is too long to be simplified automatically.',
+            ),
+          );
+        }
         throw new Error(
           `Simplify stream failed: ${response.status}${details ? ` - ${details}` : ''}`,
         );

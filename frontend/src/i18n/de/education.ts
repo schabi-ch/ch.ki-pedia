@@ -236,6 +236,7 @@ export default {
     },
   },
   studentArguments: {
+    audience: 'Für Lernende',
     title: 'Argumentarium für Schülerinnen und Schüler',
     introduction: 'Warum ki-pedia statt einfach googeln oder die KI fragen? Sieben Gründe zum Weitergeben:',
     reasons: {

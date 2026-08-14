@@ -1,3 +1,6 @@
+import imprintPage from '../de/imprint-page';
+import privacyPage from '../de/privacy-page';
+
 export default {
   failed: 'Action failed',
   success: 'Action was successful',
@@ -34,6 +37,8 @@ export default {
     learningGoalsBody:
       'Working with Wikipedia supports media literacy, reading comprehension and critical thinking about AI-generated answers.',
   },
+  imprintPage,
+  privacyPage,
   search: {
     placeholder: 'Search article...',
     button: 'Search',
@@ -113,6 +118,8 @@ export default {
     glossary: {
       action: 'Important terms',
       title: 'Important terms',
+      term: 'Term',
+      explanation: 'Explanation',
     },
     levels: {
       original: 'Original',
@@ -126,6 +133,7 @@ export default {
     cancelSimplify: 'Stop simplification',
     simplifyCancelledByUser: '... (Cancelled by the user)',
     simplifiedDone: 'The text has now been rewritten.',
+    simplifyTooLong: 'This article is too long to be simplified automatically.',
     translating: 'Translating article…',
     cancelTranslate: 'Cancel translation',
     tocTitle: 'Show table of contents',

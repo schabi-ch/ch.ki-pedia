@@ -1,3 +1,6 @@
+import imprintPage from '../de/imprint-page';
+import privacyPage from '../de/privacy-page';
+
 export default {
   failed: "L'acziun n'è betg reussida",
   success: "L'acziun è reussida",
@@ -34,6 +37,8 @@ export default {
     learningGoalsBody:
       'Lavurar cun Wikipedia rinforza la cumpetenza da medias, la chapientscha da texts ed il pensar critic envers respostas generadas da l’IA.',
   },
+  imprintPage,
+  privacyPage,
   search: {
     placeholder: 'Tschertgar in artitgel...',
     button: 'Tschertgar',
@@ -113,6 +118,8 @@ export default {
     glossary: {
       action: 'Terms impurtants',
       title: 'Terms impurtants',
+      term: 'Term',
+      explanation: 'Decleraziun',
     },
     levels: {
       original: 'Original',
@@ -126,6 +133,7 @@ export default {
     cancelSimplify: 'Interrumper la simplificaziun',
     simplifyCancelledByUser: '... (Interrupziun tras l\'utilisader)',
     simplifiedDone: 'Il text e vegn ussa reformulà.',
+    simplifyTooLong: 'Quest artechel e memia lung per vegnir simplifitgà automaticamain.',
     translating: "L'artitgel vegn tradui…",
     cancelTranslate: 'Interrumper la translaziun',
     tocTitle: 'Mussar la survista dal cuntegn',

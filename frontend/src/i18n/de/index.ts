@@ -1,5 +1,7 @@
 import about from './about';
 import education from './education';
+import imprintPage from './imprint-page';
+import privacyPage from './privacy-page';
 
 export default {
   failed: 'Aktion fehlgeschlagen',
@@ -25,6 +27,8 @@ export default {
   },
   education,
   about,
+  imprintPage,
+  privacyPage,
   search: {
     placeholder: 'Artikel suchen...',
     button: 'Suchen',
@@ -104,6 +108,8 @@ export default {
     glossary: {
       action: 'Wichtige Begriffe',
       title: 'Wichtige Begriffe',
+      term: 'Begriff',
+      explanation: 'Erklärung',
     },
     levels: {
       original: 'Original',
@@ -117,6 +123,7 @@ export default {
     cancelSimplify: 'Vereinfachung abbrechen',
     simplifyCancelledByUser: '... (Abbruch durch den Benutzer)',
     simplifiedDone: 'Der Text wurde jetzt umgeschrieben.',
+    simplifyTooLong: 'Dieser Artikel ist zu lang und kann nicht automatisch vereinfacht werden.',
     translating: 'Artikel wird übersetzt…',
     cancelTranslate: 'Übersetzung abbrechen',
     tocTitle: 'Inhaltsverzeichnis anzeigen',

@@ -791,7 +791,7 @@ export default defineComponent({
         .map((term) => `| ${escapeMarkdownTableCell(term.term)} | ${escapeMarkdownTableCell(term.explanation)} |`)
         .join('\n');
 
-      return `${t('article.glossary.title')}\n\n| Begriff | Erklärung |\n| --- | --- |\n${rows}`;
+      return `${t('article.glossary.title')}\n\n| ${t('article.glossary.term')} | ${t('article.glossary.explanation')} |\n| --- | --- |\n${rows}`;
     }
 
     function buildSectionCopyMarkdown (section: GradeArticleSection): string {
@@ -1076,6 +1076,7 @@ export default defineComponent({
     },
 
     async onCefrButtonClick (level: CefrSliderLevel) {
+      this.levelSliderOpen = false;
       const nextVariant = level === 'original' ? 'original' : `cefr:${level}`;
       const finishHistoryEntry = nextVariant === this.store.activeVariant
         ? () => undefined
@@ -1085,11 +1086,11 @@ export default defineComponent({
       } finally {
         finishHistoryEntry();
       }
-      this.levelSliderOpen = false;
     },
 
     async onGradeButtonClick (grade: number) {
       if (!(GRADE_LEVELS as readonly number[]).includes(grade)) return;
+      this.levelSliderOpen = false;
       const nextVariant = `grade:${grade}`;
       const finishHistoryEntry = nextVariant === this.store.activeVariant
         ? () => undefined
@@ -1099,7 +1100,6 @@ export default defineComponent({
       } finally {
         finishHistoryEntry();
       }
-      this.levelSliderOpen = false;
     },
 
     async onLanguageSelect (lang: string) {
