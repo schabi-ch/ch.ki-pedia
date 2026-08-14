@@ -119,7 +119,7 @@ export default defineComponent({
   data () {
     return {
       chatInput: '',
-      isExpanded: true,
+      isExpanded: false,
     };
   },
 
@@ -297,6 +297,7 @@ export default defineComponent({
 }
 
 @media (max-width: 600px) {
+
   .floating-chat,
   .floating-chat--expanded {
     top: 0;

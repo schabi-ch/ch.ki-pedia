@@ -255,6 +255,17 @@ export class WikipediaService {
         return '\n\n' + el.outerHTML + '\n\n';
       },
     });
+    // Keep the empty <a id="cite_note-…"|"cite_ref-…"> anchors injected in
+    // sanitizeWikipediaHtml as raw HTML so citation footnote links keep a
+    // jump target after Markdown conversion (Turndown otherwise drops
+    // href-less anchors entirely).
+    this.turndown.addRule('citationAnchor', {
+      filter: (node) =>
+        node.nodeName === 'A' &&
+        /^cite_(note|ref)-/.test(node.getAttribute('id') ?? ''),
+      replacement: (content, node) =>
+        `<a id="${node.getAttribute('id') ?? ''}"></a>${content}`,
+    });
   }
 
   private normalizeWikiLang(lang?: string): string {
@@ -326,6 +337,17 @@ export class WikipediaService {
     // Mark Begriffsklärungshinweis div to keep as raw HTML
     $('#Vorlage_Begriffsklärungshinweis').attr('data-keep-html', 'true');
 
+    // Citation footnotes (cite_ref-* on the superscript in the body, cite_note-*
+    // on the corresponding <li> in the references list) carry ids that Turndown
+    // would otherwise drop. Inject an empty anchor with the same id as each
+    // element's first child so the anchor survives Markdown conversion (see the
+    // 'citationAnchor' Turndown rule below) and the two stay jump-linkable.
+    $('[id^="cite_note-"], [id^="cite_ref-"]').each((_, el) => {
+      const id = $(el).attr('id');
+      if (!id) return;
+      $(el).prepend(`<a id="${id}"></a>`);
+    });
+
     // Make links absolute and rewrite Wikipedia article links to internal routes.
     $('a[href]').each((_, el) => {
       const rawHref = $(el).attr('href');
@@ -355,6 +377,11 @@ export class WikipediaService {
       if (isWikiArticleLink) {
         const afterPrefix = href.slice(wikiPrefix.length);
         const titlePart = afterPrefix.split(/[?#]/, 1)[0] ?? '';
+        // Preserve the fragment (e.g. citation footnotes like "#cite_note-1")
+        // so links back to the same article keep pointing at the right anchor
+        // instead of just jumping to the top of the page.
+        const hashIndex = afterPrefix.indexOf('#');
+        const fragment = hashIndex === -1 ? '' : afterPrefix.slice(hashIndex);
         try {
           const decodedTitle = decodeURIComponent(titlePart)
             .replace(/_/g, ' ')
@@ -371,7 +398,7 @@ export class WikipediaService {
             return;
           }
           if (decodedTitle) {
-            $(el).attr('href', `/article/${encodeURIComponent(decodedTitle)}`);
+            $(el).attr('href', `/article/${lang}/${encodeURIComponent(decodedTitle)}${fragment}`);
             $(el).removeAttr('target');
             $(el).removeAttr('rel');
             return;

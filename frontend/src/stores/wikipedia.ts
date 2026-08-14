@@ -81,7 +81,7 @@ function persistTocOpen(val: boolean): void {
   }
 }
 
-function getWikiLang(): string {
+export function getWikiLang(): string {
   const locale = localStorage.getItem(LOCALE_STORAGE_KEY) || 'de';
   // Map locale codes to Wikipedia language codes
   if (locale === 'en-US') return 'en';
@@ -475,7 +475,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     searchLoading.value = false;
   }
 
-  async function loadArticle(title: string) {
+  async function loadArticle(title: string, langOverride?: string) {
     abortSimplifyStream();
     abortTranslateStream();
     translateLoading.value = false;
@@ -487,11 +487,12 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
     articleLanguages.value = [];
     resetSimplificationState();
     clearSectionLearningState();
-    articleLang.value = getWikiLang();
+    const lang = langOverride ?? getWikiLang();
+    articleLang.value = lang;
     clearChatHistory();
     try {
       const response = await api.get<Article>(`/wikipedia/article/${encodeURIComponent(title)}`, {
-        params: { lang: getWikiLang() },
+        params: { lang },
       });
       article.value = {
         ...response.data,
@@ -501,9 +502,9 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         setTocOpen(window.innerWidth >= 700, false);
       }
       // Cache the original version
-      setVersion(response.data.title, getWikiLang(), 'original', response.data.contentMarkdown);
+      setVersion(response.data.title, lang, 'original', response.data.contentMarkdown);
       // Load available languages in the background
-      void loadArticleLanguages(response.data.title, getWikiLang());
+      void loadArticleLanguages(response.data.title, lang);
     } catch (err) {
       console.error('Article load error:', err);
       articleError.value = 'Failed to load article. Please try again.';

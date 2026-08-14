@@ -6,6 +6,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('pages/IndexPage.vue') },
+      { path: 'article/:lang/:title', component: () => import('pages/ArticlePage.vue') },
+      // Legacy links shared before language became part of the URL; falls
+      // back to the viewer's own UI language, same as before this existed.
       { path: 'article/:title', component: () => import('pages/ArticlePage.vue') },
       { path: 'about', component: () => import('pages/AboutPage.vue') },
       { path: 'education', component: () => import('pages/EducationPage.vue') },

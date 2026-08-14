@@ -36,6 +36,7 @@
 import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
+import { getWikiLang } from 'stores/wikipedia';
 
 export default defineComponent({
   name: 'HeaderSearchForm',
@@ -68,7 +69,7 @@ export default defineComponent({
     function openArticle (title: string) {
       resetSuggestions();
       headerSearch.value = '';
-      void router.push({ path: `/article/${encodeURIComponent(title)}` });
+      void router.push({ path: `/article/${getWikiLang()}/${encodeURIComponent(title)}` });
       emit('navigate');
     }
 

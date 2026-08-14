@@ -127,7 +127,7 @@
 <script lang="ts">
 import { computed, defineComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWikipediaStore } from 'stores/wikipedia';
+import { useWikipediaStore, getWikiLang } from 'stores/wikipedia';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
 import { resolveCurrentBranding } from 'src/utils/branding';
 
@@ -217,7 +217,7 @@ export default defineComponent({
 
     openArticle (title: string) {
       this.resetSuggestions();
-      void this.$router.push({ path: `/article/${encodeURIComponent(title)}` });
+      void this.$router.push({ path: `/article/${getWikiLang()}/${encodeURIComponent(title)}` });
     },
   },
 });

@@ -200,8 +200,10 @@
               </template>
               <q-markdown v-else :src="store.displayedContent" class="article-markdown" no-heading-anchor-links />
             </div>
-            <div v-if="showAppendix" class="article-appendix q-mt-lg">
+            <div v-if="showAppendix" class="article-appendix q-mt-lg" ref="articleAppendixRef">
               <q-expansion-item v-for="(section, idx) in store.article.appendixSections" :key="section.kind + ':' + idx"
+                :model-value="isAppendixOpen(section.kind + ':' + idx)"
+                @update:model-value="(val) => setAppendixOpen(section.kind + ':' + idx, val)"
                 :icon="appendixIcon(section.kind)" :label="section.title"
                 header-class="article-appendix-header text-weight-medium" expand-separator>
                 <div class="article-appendix-body q-pa-md">
@@ -275,7 +277,8 @@
 <script lang="ts">
 import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { GRADE_LEVELS, useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { GRADE_LEVELS, useWikipediaStore, getWikiLang, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { saveLocale, localeForWikiLang } from 'boot/i18n';
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
@@ -354,8 +357,11 @@ export default defineComponent({
     const languageDialogOpen = ref(false);
     const topCancelRef = ref<HTMLElement | null>(null);
     const articleContentRef = ref<HTMLElement | null>(null);
+    const articleAppendixRef = ref<HTMLElement | null>(null);
     const infoboxPrintRef = ref<HTMLElement | null>(null);
     const infoboxFloatRef = ref<HTMLElement | null>(null);
+    const openAppendixKeys = ref(new Set<string>());
+    let footnoteHighlightEl: HTMLElement | null = null;
     const showBottomCancelButton = ref(false);
     const copyLoading = ref(false);
     const wordLoading = ref(false);
@@ -580,6 +586,73 @@ export default defineComponent({
       await applyCitationHighlights();
     };
 
+    function isAppendixOpen (key: string): boolean {
+      return openAppendixKeys.value.has(key);
+    }
+
+    function setAppendixOpen (key: string, open: boolean) {
+      const next = new Set(openAppendixKeys.value);
+      if (open) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      openAppendixKeys.value = next;
+    }
+
+    // Opens the appendix section (Einzelnachweise/…) containing the given
+    // footnote anchor and expands it if needed, so the id is actually
+    // present in the DOM before we try to scroll to it.
+    async function openAppendixSectionFor (fragmentId: string): Promise<void> {
+      const sections = store.article?.appendixSections ?? [];
+      const idx = sections.findIndex((section) => section.markdown.includes(`id="${fragmentId}"`));
+      if (idx === -1) return;
+      const key = `${sections[idx]?.kind}:${idx}`;
+      if (isAppendixOpen(key)) return;
+      setAppendixOpen(key, true);
+      await nextTick();
+      // Let the q-expansion-item's expand transition finish before measuring
+      // layout for scrollIntoView, otherwise it scrolls to the wrong offset.
+      await new Promise((resolve) => setTimeout(resolve, 320));
+    }
+
+    async function scrollToFootnote (fragmentId: string): Promise<void> {
+      if (fragmentId.startsWith('cite_note-')) {
+        await openAppendixSectionFor(fragmentId);
+      }
+      const target = document.getElementById(fragmentId);
+      if (!target) return;
+
+      const highlightEl = target.closest('li') ?? target.parentElement ?? target;
+      if (footnoteHighlightEl && footnoteHighlightEl !== highlightEl) {
+        footnoteHighlightEl.classList.remove('footnote-highlight');
+      }
+      highlightEl.classList.remove('footnote-highlight');
+      // Force a reflow so re-triggering the highlight on the same element
+      // restarts the CSS animation instead of being a no-op.
+      void highlightEl.offsetWidth;
+      highlightEl.classList.add('footnote-highlight');
+      footnoteHighlightEl = highlightEl;
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function onArticleAnchorClick (event: MouseEvent) {
+      const anchor = (event.target as HTMLElement | null)?.closest('a');
+      if (!anchor) return;
+      if (!articleContentRef.value?.contains(anchor) && !articleAppendixRef.value?.contains(anchor)) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href) return;
+      const hashIndex = href.indexOf('#');
+      if (hashIndex === -1) return;
+      const fragment = href.slice(hashIndex + 1);
+      if (!/^cite_(note|ref)-/.test(fragment)) return;
+
+      event.preventDefault();
+      void scrollToFootnote(fragment);
+    }
+
     const updateCancelButtonsVisibility = () => {
       if (!store.simplifyLoading) {
         showBottomCancelButton.value = false;
@@ -657,6 +730,13 @@ export default defineComponent({
     );
 
     watch(
+      () => [store.article?.title, store.articleLang],
+      () => {
+        openAppendixKeys.value = new Set();
+      },
+    );
+
+    watch(
       () => [store.activeChatMessageId, store.focusedCitationId, store.chatCitationActivationId],
       () => {
         void applyCitationHighlights();
@@ -681,6 +761,7 @@ export default defineComponent({
       window.addEventListener('scroll', onViewportChange, { passive: true });
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('popstate', onArticleHistoryPopState);
+      document.addEventListener('click', onArticleAnchorClick);
       void nextTick(updateCancelButtonsVisibility);
       void rebuildCitationSegments();
     });
@@ -697,6 +778,7 @@ export default defineComponent({
       window.removeEventListener('scroll', onViewportChange);
       window.removeEventListener('resize', onViewportChange);
       window.removeEventListener('popstate', onArticleHistoryPopState);
+      document.removeEventListener('click', onArticleAnchorClick);
       document.title = branding.pageTitle;
     });
 
@@ -892,8 +974,11 @@ export default defineComponent({
       languageDialogOpen,
       topCancelRef,
       articleContentRef,
+      articleAppendixRef,
       infoboxPrintRef,
       infoboxFloatRef,
+      isAppendixOpen,
+      setAppendixOpen,
       showBottomCancelButton,
       hasInfobox,
       showInfobox,
@@ -1044,12 +1129,14 @@ export default defineComponent({
   },
 
   watch: {
-    '$route.params.title': {
+    '$route.path': {
       immediate: true,
-      handler (title: string) {
-        if (title) {
-          void this.store.loadArticle(decodeRouteTitleSafely(title));
-        }
+      handler () {
+        const { title: rawTitle, lang: rawLang } = this.$route.params;
+        const title = Array.isArray(rawTitle) ? rawTitle[0] : rawTitle;
+        if (!title) return;
+        const lang = Array.isArray(rawLang) ? rawLang[0] : rawLang;
+        void this.loadArticleFromRoute(decodeRouteTitleSafely(title), lang || undefined);
       },
     },
     'store.displayedContent': {
@@ -1060,6 +1147,26 @@ export default defineComponent({
   },
 
   methods: {
+    // Handles both /article/:lang/:title (shared links) and the legacy
+    // /article/:title (no language segment, falls back to the viewer's own
+    // UI language, same as before URLs carried a language at all).
+    async loadArticleFromRoute (title: string, wikiLang: string | undefined) {
+      if (wikiLang) {
+        const uiLocale = localeForWikiLang(wikiLang);
+        if (uiLocale && uiLocale !== this.$i18n.locale) {
+          this.$i18n.locale = uiLocale;
+          saveLocale(uiLocale);
+        }
+      }
+      const targetLang = wikiLang ?? getWikiLang();
+      if (this.store.article?.title === title && this.store.articleLang === targetLang) {
+        // Already showing this article/language; avoid re-fetching when we
+        // ourselves just rewrote the URL (see onLanguageSelect below).
+        return;
+      }
+      await this.store.loadArticle(title, wikiLang);
+    },
+
     assignHeadingIds () {
       const container = this.$refs.articleContentRef as HTMLElement | undefined;
       if (!container) return;
@@ -1115,6 +1222,11 @@ export default defineComponent({
       this.languageDialogOpen = false;
       try {
         await this.store.loadArticleInLanguage(lang);
+        if (this.store.article && this.store.articleLang === lang) {
+          void this.$router.replace(
+            `/article/${encodeURIComponent(lang)}/${encodeURIComponent(this.store.article.title)}`,
+          );
+        }
       } finally {
         finishHistoryEntry();
       }
@@ -1442,6 +1554,41 @@ export default defineComponent({
   .infobox-body :deep(.citation-highlight) {
     background: transparent !important;
     box-shadow: none !important;
+  }
+}
+
+.article-content :deep(.footnote-highlight),
+.article-appendix :deep(.footnote-highlight) {
+  border-radius: 4px;
+  animation: footnote-flash 2.2s ease-out;
+}
+
+@keyframes footnote-flash {
+  0% {
+    background: rgba(255, 193, 7, 0.55);
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.45);
+  }
+
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+:global(.body--dark) .article-content :deep(.footnote-highlight),
+:global(.body--dark) .article-appendix :deep(.footnote-highlight) {
+  animation-name: footnote-flash-dark;
+}
+
+@keyframes footnote-flash-dark {
+  0% {
+    background: rgba(255, 213, 79, 0.4);
+    box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.5);
+  }
+
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 3px transparent;
   }
 }
 

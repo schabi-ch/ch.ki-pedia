@@ -49,12 +49,12 @@ describe('WikipediaService', () => {
 
     const article = await service.getArticle('Bahnhof Bern', 'de');
 
-    expect(article.contentMarkdown).toContain('[Schweiz](/article/Schweiz)');
+    expect(article.contentMarkdown).toContain('[Schweiz](/article/de/Schweiz)');
     expect(article.contentMarkdown).not.toContain('Vorlage');
     expect(article.contentMarkdown).not.toContain('Infobox_Bahnhof');
     expect(article.contentMarkdown).not.toContain('[i16]');
     expect(article.infoboxHtml).toContain('Infobox content');
-    expect(article.infoboxHtml).toContain('/article/Schweiz');
+    expect(article.infoboxHtml).toContain('/article/de/Schweiz');
     expect(article.contentHtml).not.toContain('class="infobox"');
   });
 
@@ -91,7 +91,7 @@ describe('WikipediaService', () => {
     expect(article.infoboxHtml).toContain(
       'https://upload.wikimedia.org/lion.jpg',
     );
-    expect(article.contentMarkdown).toContain('[Tiger](/article/Tiger)');
+    expect(article.contentMarkdown).toContain('[Tiger](/article/de/Tiger)');
   });
 
   it('removes Wikipedia non-reading maintenance boxes before Markdown conversion', async () => {

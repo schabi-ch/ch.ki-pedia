@@ -35,6 +35,14 @@ function saveLocale(locale: string) {
   localStorage.setItem(LOCALE_STORAGE_KEY, locale);
 }
 
+// Reverse of getWikiLang() in stores/wikipedia.ts: maps a Wikipedia language
+// code (as it appears in article URLs) back to a supported UI locale, or
+// null if the wiki language has no matching UI translation.
+function localeForWikiLang(wikiLang: string): MessageLanguages | null {
+  const candidate = wikiLang === 'en' ? 'en-US' : wikiLang;
+  return candidate in messages ? (candidate as MessageLanguages) : null;
+}
+
 export default defineBoot(({ app }) => {
   const i18n = createI18n<{ message: MessageSchema }, MessageLanguages>({
     locale: getSavedLocale(),
@@ -44,4 +52,4 @@ export default defineBoot(({ app }) => {
   app.use(i18n);
 });
 
-export { saveLocale, getSavedLocale, LOCALE_STORAGE_KEY };
+export { saveLocale, getSavedLocale, localeForWikiLang, LOCALE_STORAGE_KEY };
