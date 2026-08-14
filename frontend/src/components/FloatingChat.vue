@@ -295,4 +295,23 @@ export default defineComponent({
     display: none;
   }
 }
+
+@media (max-width: 600px) {
+  .floating-chat,
+  .floating-chat--expanded {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .chat-card,
+  .floating-chat--expanded .chat-card {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+}
 </style>

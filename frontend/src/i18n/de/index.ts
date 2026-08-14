@@ -11,6 +11,7 @@ export default {
     tagline: 'Wikipedia – einfach und verständlich',
   },
   header: {
+    homeTooltip: 'Zur Startseite',
     languageTooltip: 'Sprache wählen',
     fontSizeTooltip: 'Schriftgrösse ändern',
     fontTooltip: 'Schrift anpassen',

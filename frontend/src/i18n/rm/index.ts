@@ -9,6 +9,7 @@ export default {
     tagline: 'Wikipedia – simpel e cler',
   },
   header: {
+    homeTooltip: 'Alla pagina da partenza',
     languageTooltip: 'Tscherner la lingua',
     fontSizeTooltip: 'Midar la grondezza dal text',
     fontTooltip: 'Adattar la scrittira',

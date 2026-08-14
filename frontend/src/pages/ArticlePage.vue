@@ -218,7 +218,11 @@
 
         <transition name="slide-in">
           <div v-if="levelSliderOpen" class="level-panel" v-click-outside="closeLevelSlider">
-            <div class="level-panel-title">{{ $t('article.simplify.title') }}</div>
+            <div class="level-panel-header">
+              <div class="level-panel-title">{{ $t('article.simplify.title') }}</div>
+              <q-btn flat dense round icon="close" size="sm" :aria-label="$t('article.close')"
+                @click="closeLevelSlider" />
+            </div>
 
             <div class="level-panel-section">
               <div class="level-panel-subtitle">{{ $t('article.simplify.byGrade.subtitle') }}</div>
@@ -1722,11 +1726,19 @@ export default defineComponent({
   gap: 14px;
 }
 
+.level-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
 .level-panel-title {
   font-size: 1rem;
   font-weight: 700;
   color: var(--kp-text-primary);
-  margin-bottom: 2px;
+  padding-top: 4px;
 }
 
 .level-panel-section {

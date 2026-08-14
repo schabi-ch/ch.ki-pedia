@@ -9,6 +9,7 @@ export default {
     tagline: 'Wikipedia – semplice e chiaro',
   },
   header: {
+    homeTooltip: 'Alla pagina iniziale',
     languageTooltip: 'Scegli la lingua',
     fontSizeTooltip: 'Modifica la dimensione del testo',
     fontTooltip: 'Modifica il carattere',

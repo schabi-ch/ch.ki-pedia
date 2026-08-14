@@ -11,6 +11,7 @@ export default {
     tagline: 'Wikipédia, simplement',
   },
   header: {
+    homeTooltip: "Retour à l'accueil",
     languageTooltip: 'Choisir la langue',
     fontSizeTooltip: 'Modifier la taille du texte',
     fontTooltip: 'Adapter la police',

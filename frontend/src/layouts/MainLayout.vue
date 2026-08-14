@@ -2,47 +2,23 @@
   <q-layout view="hHh LpR lfr">
     <q-header class="header-glass">
       <q-toolbar style="height: 60px;">
-        <router-link v-if="showHeaderBrand" to="/" class="header-brand" :aria-label="$t('search.placeholder')">
-
-
-          <div class="header-title-text">
+        <router-link to="/" class="header-brand" :class="{ 'header-brand--compact': !showHeaderBrand }"
+          :aria-label="$t('header.homeTooltip')">
+          <div v-if="showHeaderBrand" class="header-title-text">
             {{ branding.logoPrefix }}<span class="header-title-accent">-pedia</span>.
           </div>
+          <q-icon v-else name="home" size="26px" color="white">
+            <q-tooltip>{{ $t('header.homeTooltip') }}</q-tooltip>
+          </q-icon>
         </router-link>
 
         <q-space />
-        <q-form v-if="isArticlePage" class="row items-center q-gutter-sm" @submit.prevent="onSearch">
-          <div class="header-search-wrapper">
-            <q-input v-model="headerSearch" bg-color="white" dense outlined rounded
-              :placeholder="$t('search.placeholder')" class="header-search" autocomplete="off"
-              @update:model-value="onLiveSearch" @keydown.down.prevent="highlightNext"
-              @keydown.up.prevent="highlightPrev" @keydown.enter.prevent="onEnter" @keydown.escape="closeSuggestions"
-              @blur="onBlur">
-              <template v-slot:append>
-                <q-btn round icon="search" type="submit" color="red-8" @click="onSearch" />
-              </template>
-            </q-input>
-
-            <q-card v-if="suggestions.length > 0 && showSuggestions" class="header-suggestions-dropdown">
-              <q-list separator>
-                <q-item v-for="(item, index) in suggestions" :key="item.pageid" clickable v-ripple
-                  :active="index === highlightedIndex" active-class="suggestion-active"
-                  @mousedown.prevent="openArticle(item.title)">
-                  <q-item-section avatar class="suggestion-thumb">
-                    <q-avatar rounded size="40px" v-if="item.thumbnail">
-                      <img :src="item.thumbnail" :alt="item.title" />
-                    </q-avatar>
-                    <q-avatar rounded size="40px" color="grey-2" text-color="grey-5" icon="article" v-else />
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="text-weight-bold">{{ item.title }}</q-item-label>
-                    <q-item-label caption class="header-suggestion-description">{{ item.description }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </q-card>
-          </div>
-        </q-form>
+        <template v-if="isArticlePage">
+          <q-btn v-if="isMobileScreen" round dense flat icon="search" color="white" @click="mobileSearchOpen = true">
+            <q-tooltip>{{ $t('search.placeholder') }}</q-tooltip>
+          </q-btn>
+          <header-search-form v-else />
+        </template>
 
         <q-space />
 
@@ -102,6 +78,16 @@
       </q-toolbar>
     </q-header>
 
+    <q-dialog v-model="mobileSearchOpen" position="top" class="mobile-search-dialog">
+      <q-card class="mobile-search-card">
+        <div class="mobile-search-card-row">
+          <q-btn flat dense round icon="arrow_back" :aria-label="$t('article.close')"
+            @click="mobileSearchOpen = false" />
+          <header-search-form autofocus class="mobile-search-form" @navigate="mobileSearchOpen = false" />
+        </div>
+      </q-card>
+    </q-dialog>
+
     <q-dialog v-model="articleLanguageNoticeOpen">
       <q-card class="article-language-notice-card">
         <q-card-section class="article-language-notice-header">
@@ -155,7 +141,7 @@ import { useI18n } from 'vue-i18n';
 import { saveLocale } from 'boot/i18n';
 import { useWikipediaStore, type FontFamily, type FontSizeLevel } from 'stores/wikipedia';
 import ArticleToc from 'components/ArticleToc.vue';
-import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
+import HeaderSearchForm from 'components/HeaderSearchForm.vue';
 import { resolveCurrentBranding } from 'src/utils/branding';
 import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 
@@ -186,6 +172,7 @@ export default defineComponent({
 
   components: {
     ArticleToc,
+    HeaderSearchForm,
   },
 
   setup () {
@@ -196,18 +183,7 @@ export default defineComponent({
     const wikiStore = useWikipediaStore();
     const articleLanguageNoticeOpen = ref(false);
     const articleLanguageNoticeText = ref<ArticleLanguageNoticeText>({ ...emptyArticleLanguageNoticeText });
-    const {
-      suggestions,
-      showSuggestions,
-      highlightedIndex,
-      onLiveSearch,
-      closeSuggestions,
-      onBlur,
-      highlightNext,
-      highlightPrev,
-      getHighlightedSuggestion,
-      resetSuggestions,
-    } = useSearchSuggestions();
+    const mobileSearchOpen = ref(false);
     const hasArticle = computed(() => !!wikiStore.article);
     const isArticlePage = computed(() => String(route.path).startsWith('/article/'));
     const branding = resolveCurrentBranding();
@@ -228,6 +204,7 @@ export default defineComponent({
 
     const currentLocale = computed(() => locale.value);
     const showHeaderBrand = computed(() => $q.screen.gt.xs);
+    const isMobileScreen = computed(() => $q.screen.xs);
 
     function languageLabelFor (code: string) {
       const key = `languages.${code}`;
@@ -285,7 +262,6 @@ export default defineComponent({
 
     function searchCurrentArticleAgain () {
       articleLanguageNoticeOpen.value = false;
-      resetSuggestions();
 
       const title = wikiStore.article?.title?.trim();
       if (title) {
@@ -360,7 +336,9 @@ export default defineComponent({
       currentLocale,
       articleLanguageNoticeOpen,
       articleLanguageNoticeText,
+      mobileSearchOpen,
       showHeaderBrand,
+      isMobileScreen,
       currentLocaleLabel,
       localeTooltipLabel,
       isDark,
@@ -378,50 +356,7 @@ export default defineComponent({
       themeTooltipLabel,
       onFontSizeChange,
       onFontFamilyChange,
-      suggestions,
-      showSuggestions,
-      highlightedIndex,
-      onLiveSearch,
-      closeSuggestions,
-      onBlur,
-      highlightNext,
-      highlightPrev,
-      getHighlightedSuggestion,
-      resetSuggestions,
     };
-  },
-
-  data () {
-    return {
-      headerSearch: '',
-    };
-  },
-
-  methods: {
-    onEnter () {
-      const selected = this.getHighlightedSuggestion();
-
-      if (selected) {
-        this.openArticle(selected.title);
-        return;
-      }
-
-      this.onSearch();
-    },
-
-    onSearch () {
-      if (this.headerSearch.trim()) {
-        this.resetSuggestions();
-        void this.router.push({ path: '/', query: { q: this.headerSearch.trim() } });
-        this.headerSearch = '';
-      }
-    },
-
-    openArticle (title: string) {
-      this.resetSuggestions();
-      this.headerSearch = '';
-      void this.router.push({ path: `/article/${encodeURIComponent(title)}` });
-    },
   },
 });
 </script>
@@ -462,6 +397,10 @@ export default defineComponent({
   min-width: 0;
 }
 
+.header-brand--compact {
+  flex-shrink: 0;
+}
+
 .header-logo,
 .header-title {
   display: block;
@@ -480,92 +419,33 @@ export default defineComponent({
   color: #d3c6e1;
 }
 
-.header-search {
-  min-width: 200px;
+.mobile-search-dialog :deep(.q-dialog__inner) {
+  padding: 0;
 }
 
-.header-search-wrapper {
-  position: relative;
-  min-width: 260px;
-}
-
-.header-search :deep(.q-field__control) {
-  padding-right: 0 !important;
-  border-radius: 24px;
-}
-
-.header-suggestions-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 1100;
-  max-height: 400px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-radius: 16px;
-  text-align: left;
+.mobile-search-card {
+  width: 100%;
+  border-radius: 0;
   background: var(--kp-surface);
-  color: #0e1b33;
   box-shadow: var(--kp-shadow-lg);
-  border: 1px solid rgba(82, 40, 129, 0.08);
 }
 
-.header-suggestions-dropdown :deep(.q-list) {
-  overflow-x: hidden;
+.mobile-search-card-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  padding-top: calc(10px + env(safe-area-inset-top));
 }
 
-.header-suggestions-dropdown :deep(.q-item) {
-  max-width: 100%;
-}
-
-.header-suggestions-dropdown :deep(.q-item__section) {
+.mobile-search-form {
+  flex: 1;
   min-width: 0;
 }
 
-.header-suggestions-dropdown :deep(.q-item__label) {
-  color: #0e1b33;
-}
-
-.header-suggestions-dropdown :deep(.q-item__label--caption) {
-  color: #5f6675;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.header-suggestion-description {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.body--dark .header-suggestions-dropdown {
-  color: #f4f5f8;
-}
-
-.body--dark .header-suggestions-dropdown :deep(.q-item__label) {
-  color: #f4f5f8;
-}
-
-.body--dark .header-suggestions-dropdown :deep(.q-item__label--caption) {
-  color: #c4cada;
-}
-
-.suggestion-active {
-  background: rgba(82, 40, 129, 0.06);
-}
-
-.body--dark .suggestion-active {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.suggestion-thumb {
-  min-width: 48px !important;
-}
-
-.suggestion-thumb :deep(.q-avatar__content img) {
+.mobile-search-form :deep(.header-search-wrapper) {
+  min-width: 0;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .locale-menu-button {

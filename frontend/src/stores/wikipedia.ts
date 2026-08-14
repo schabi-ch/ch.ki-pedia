@@ -498,7 +498,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         appendixSections: response.data.appendixSections ?? [],
       };
       if (!hasStoredTocOpen()) {
-        setTocOpen(true, false);
+        setTocOpen(window.innerWidth >= 700, false);
       }
       // Cache the original version
       setVersion(response.data.title, getWikiLang(), 'original', response.data.contentMarkdown);
@@ -739,7 +739,7 @@ export const useWikipediaStore = defineStore('wikipedia', () => {
         appendixSections: response.data.appendixSections ?? [],
       };
       if (!hasStoredTocOpen()) {
-        setTocOpen(true, false);
+        setTocOpen(window.innerWidth >= 700, false);
       }
       setVersion(response.data.title, targetLang, 'original', response.data.contentMarkdown);
       void loadArticleLanguages(response.data.title, requestLang);
