@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   ForbiddenException,
   InternalServerErrorException,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { StatsService } from './stats.service';
@@ -232,6 +233,72 @@ describe('StatsService', () => {
 
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(endMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows "Pool is closed" errors from queries in flight during an outage', async () => {
+    const errorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      executeMock
+        .mockRejectedValueOnce(
+          Object.assign(new Error('getaddrinfo ENOTFOUND mysql.example'), {
+            code: 'ENOTFOUND',
+          }),
+        )
+        .mockRejectedValueOnce(new Error('Pool is closed.'))
+        .mockRejectedValueOnce(new Error('Pool is closed.'))
+        .mockRejectedValueOnce(new Error('Pool is closed.'));
+      const service = await createEnabledService();
+
+      // pages, visits, url_ki_pedia_ch and visitors run concurrently.
+      await service.incrementVisit({
+        newSession: true,
+        newVisitor: true,
+        siteHost: 'ki-pedia.ch',
+      });
+
+      expect(executeMock).toHaveBeenCalledTimes(4);
+      expect(endMock).toHaveBeenCalledTimes(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('doubles the reconnect backoff on repeated failures and resets it on success', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    try {
+      const connectionLost = () =>
+        Object.assign(new Error('Connection lost'), {
+          code: 'PROTOCOL_CONNECTION_LOST',
+        });
+      nowSpy.mockReturnValue(0);
+      executeMock.mockRejectedValueOnce(connectionLost());
+      const service = await createEnabledService();
+
+      await service.incrementArticleView(); // fails → backoff 30s
+      nowSpy.mockReturnValue(31_000);
+      executeMock.mockRejectedValueOnce(connectionLost());
+      await service.incrementArticleView(); // reconnect, fails → backoff 60s
+      expect(mockCreatePool).toHaveBeenCalledTimes(2);
+
+      nowSpy.mockReturnValue(31_000 + 45_000);
+      await service.incrementArticleView(); // still within 60s: no reconnect
+      expect(mockCreatePool).toHaveBeenCalledTimes(2);
+
+      nowSpy.mockReturnValue(31_000 + 61_000);
+      await service.incrementArticleView(); // reconnect, succeeds → reset
+      expect(mockCreatePool).toHaveBeenCalledTimes(3);
+
+      executeMock.mockRejectedValueOnce(connectionLost());
+      await service.incrementArticleView(); // fails → backoff back to 30s
+      nowSpy.mockReturnValue(31_000 + 61_000 + 31_000);
+      await service.incrementArticleView();
+      expect(mockCreatePool).toHaveBeenCalledTimes(4);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('reconnects after the backoff once the connection was lost', async () => {

@@ -150,9 +150,11 @@ const STATS_COLUMNS: readonly StatsColumn[] = [
 ];
 
 // After a connection failure the pool is dropped; a new one is created at the
-// next stats call, but not more often than this, so an outage does not turn
-// every page view into a reconnect attempt.
-const RECONNECT_BACKOFF_MS = 30_000;
+// next stats call, but not before the backoff has elapsed, so an outage does
+// not turn every page view into a reconnect attempt. The backoff doubles on
+// each further failure up to the maximum and resets after a successful query.
+const RECONNECT_BACKOFF_MIN_MS = 30_000;
+const RECONNECT_BACKOFF_MAX_MS = 15 * 60_000;
 
 @Injectable()
 export class StatsService implements OnModuleInit, OnModuleDestroy {
@@ -162,6 +164,7 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
   private createPool: (typeof import('mysql2/promise'))['createPool'] | null =
     null;
   private nextReconnectAt = 0;
+  private reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
   private disabledWarningLogged = false;
   private connectionFailureLogged = false;
 
@@ -216,9 +219,19 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
     if (Date.now() < this.nextReconnectAt) {
       return null;
     }
-    this.logger.log('Reconnecting to the stats MySQL database');
+    this.logger.debug('Reconnecting to the stats MySQL database');
     this.pool = this.createPool(this.poolOptions);
     return this.pool;
+  }
+
+  // Called after a successful query: resets the backoff and reports once
+  // that the connection is back after an outage.
+  private markConnectionHealthy(): void {
+    this.reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
+    if (this.connectionFailureLogged) {
+      this.logger.log('Stats MySQL connection restored');
+      this.connectionFailureLogged = false;
+    }
   }
 
   private get isConfigured(): boolean {
@@ -314,6 +327,7 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       const [rows] = await pool.query<(MonthlyStatsRow & RowDataPacket)[]>(
         `SELECT monthPrimary, ${STATS_COLUMNS.join(', ')} FROM visitors ORDER BY monthPrimary DESC`,
       );
+      this.markConnectionHealthy();
       return rows.map((row) => ({
         monthPrimary: row.monthPrimary,
         visitors: Number(row.visitors),
@@ -347,7 +361,7 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
         gui_lang_en: Number(row.gui_lang_en),
       }));
     } catch (error) {
-      if (this.disableStatsOnConnectionFailure(error)) {
+      if (this.disableStatsOnConnectionFailure(error, pool)) {
         throw new ServiceUnavailableException(
           'Statistics database is currently unreachable, please try again shortly',
         );
@@ -377,8 +391,9 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
         `INSERT INTO visitors (monthPrimary, ${column}) VALUES (?, 1) ON DUPLICATE KEY UPDATE ${column} = ${column} + 1`,
         [monthPrimary],
       );
+      this.markConnectionHealthy();
     } catch (error) {
-      if (this.disableStatsOnConnectionFailure(error)) {
+      if (this.disableStatsOnConnectionFailure(error, pool)) {
         return;
       }
       this.logger.error(
@@ -433,22 +448,45 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private disableStatsOnConnectionFailure(error: unknown): boolean {
+  // Returns true when the error is a connectivity problem that has been
+  // handled (pool dropped, backoff scheduled). `failedPool` is the pool the
+  // failing query ran on: concurrent queries that fail on a pool that has
+  // already been replaced or closed are swallowed without extending the backoff.
+  private disableStatsOnConnectionFailure(
+    error: unknown,
+    failedPool: Pool,
+  ): boolean {
+    if (this.isPoolClosedError(error)) {
+      return true;
+    }
     if (!this.isConnectionFailure(error)) {
       return false;
     }
+    if (failedPool !== this.pool) {
+      return true;
+    }
 
-    const failedPool = this.pool;
     this.pool = null;
-    this.nextReconnectAt = Date.now() + RECONNECT_BACKOFF_MS;
-    void failedPool?.end().catch(() => undefined);
+    this.nextReconnectAt = Date.now() + this.reconnectBackoffMs;
+    void failedPool.end().catch(() => undefined);
     if (!this.connectionFailureLogged) {
       this.logger.warn(
-        `Stats logging paused: MySQL connection unavailable, retrying after ${RECONNECT_BACKOFF_MS / 1000}s`,
+        `Stats logging paused: MySQL connection unavailable (${error instanceof Error ? error.message : String(error)}), retrying after ${this.reconnectBackoffMs / 1000}s`,
       );
       this.connectionFailureLogged = true;
     }
+    this.reconnectBackoffMs = Math.min(
+      this.reconnectBackoffMs * 2,
+      RECONNECT_BACKOFF_MAX_MS,
+    );
     return true;
+  }
+
+  // mysql2 rejects queries queued on a pool whose end() has been called with
+  // a plain Error and no code; this happens to in-flight siblings of the
+  // query that detected the outage.
+  private isPoolClosedError(error: unknown): boolean {
+    return error instanceof Error && error.message === 'Pool is closed.';
   }
 
   private isConnectionFailure(error: unknown): boolean {
