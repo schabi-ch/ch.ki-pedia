@@ -1,6 +1,7 @@
 <template>
     <q-page class="legal-page imprint-page">
         <div class="legal-page__container">
+            <RomanshFallbackNotice />
             <q-card flat bordered class="legal-page__card">
                 <q-card-section class="imprint-page__header">
                     <div class="legal-page__eyebrow">{{ $t('imprintPage.eyebrow') }}</div>
@@ -98,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import RomanshFallbackNotice from 'components/RomanshFallbackNotice.vue';
 import schabiLogo from 'src/assets/img/schabi-logo.jpg';
 import wikimediaEduLogo from 'src/assets/img/wikimedia-edu.jpg';
 

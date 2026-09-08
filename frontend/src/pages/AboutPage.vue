@@ -1,6 +1,7 @@
 <template>
   <q-page class="legal-page about-page">
     <div class="legal-page__container">
+      <RomanshFallbackNotice />
       <q-card flat bordered class="legal-page__card">
         <q-card-section class="about-page__header">
           <div class="legal-page__eyebrow">{{ $t('about.eyebrow') }}</div>
@@ -143,6 +144,10 @@
     </div>
   </q-page>
 </template>
+
+<script setup lang="ts">
+import RomanshFallbackNotice from 'components/RomanshFallbackNotice.vue';
+</script>
 
 <style scoped lang="scss">
 .about-page__header {

@@ -1,6 +1,7 @@
 <template>
     <q-page class="legal-page privacy-page">
         <div class="legal-page__container">
+            <RomanshFallbackNotice />
             <q-card flat bordered class="legal-page__card">
                 <q-card-section class="privacy-page__header">
                     <div class="legal-page__eyebrow">{{ $t('privacyPage.eyebrow') }}</div>
@@ -85,7 +86,9 @@
 </template>
 
 <script setup lang="ts">
-const privacySectionIds = ['chat', 'statistics', 'noFurtherData', 'contact'] as const;
+import RomanshFallbackNotice from 'components/RomanshFallbackNotice.vue';
+
+const privacySectionIds =['chat', 'statistics', 'noFurtherData', 'contact'] as const;
 const privacySectionIcons: Record<(typeof privacySectionIds)[number], string> = {
     chat: 'chat',
     statistics: 'bar_chart',

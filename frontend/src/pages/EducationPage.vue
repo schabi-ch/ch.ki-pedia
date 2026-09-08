@@ -1,6 +1,7 @@
 <template>
   <q-page class="legal-page education-page">
     <div class="legal-page__container">
+      <RomanshFallbackNotice />
       <q-card flat bordered class="legal-page__card">
         <q-card-section class="education-page__header">
           <div class="legal-page__eyebrow">{{ $t('education.eyebrow') }}</div>
@@ -249,7 +250,9 @@
 </template>
 
 <script setup lang="ts">
-const subjectIds = ['mint', 'society', 'arts', 'everyday', 'languages', 'media'] as const;
+import RomanshFallbackNotice from 'components/RomanshFallbackNotice.vue';
+
+const subjectIds =['mint', 'society', 'arts', 'everyday', 'languages', 'media'] as const;
 const subjectIcons: Record<(typeof subjectIds)[number], string> = {
   mint: 'science',
   society: 'public',

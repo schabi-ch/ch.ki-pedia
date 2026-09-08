@@ -1,4 +1,4 @@
-import about from '../de/about';
+import about from './about';
 import education from './education';
 import imprintPage from './imprint-page';
 import privacyPage from './privacy-page';
