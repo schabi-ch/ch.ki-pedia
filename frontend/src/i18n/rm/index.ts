@@ -1,3 +1,5 @@
+import about from '../de/about';
+import education from '../de/education';
 import imprintPage from '../de/imprint-page';
 import privacyPage from '../de/privacy-page';
 
@@ -24,20 +26,8 @@ export default {
     whatIs: 'Tge è {brandName}?',
     inClass: '{brandName} en l’instrucziun',
   },
-  education: {
-    title: '{brandName} en l’instrucziun',
-    lead:
-      '{brandName} gida persunas d’instrucziun e scolaras/scolars ad utilisar cuntegns da Wikipedia en moda simpla e basada sin funtaunas.',
-    forTeachersTitle: 'Per persunas d’instrucziun',
-    forTeachersBody:
-      'Cun {brandName} pudais Vus adattar artitgels cumplexs da Wikipedia al nivel da lectura adattà e duvrar els per incumbensas en classa.',
-    inClassTitle: 'Applicaziun en classa',
-    inClassBody:
-      'Scolaras e scolars pon leger, simplifitgar e far dumondas directamain davart il cuntegn da l’artitgel, cun mantegnair il connex cun la funtauna originala.',
-    learningGoalsTitle: 'Finamiras d’emprender',
-    learningGoalsBody:
-      'Lavurar cun Wikipedia rinforza la cumpetenza da medias, la chapientscha da texts ed il pensar critic envers respostas generadas da l’IA.',
-  },
+  education,
+  about,
   imprintPage,
   privacyPage,
   search: {

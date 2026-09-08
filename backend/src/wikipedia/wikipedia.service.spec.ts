@@ -58,6 +58,49 @@ describe('WikipediaService', () => {
     expect(article.contentHtml).not.toContain('class="infobox"');
   });
 
+  it('tags inline background colours so dark mode stays readable', async () => {
+    fetchMock.mockResolvedValue(
+      createHtmlResponse(`
+        <html>
+          <body>
+            <h1 id="firstHeading">Coupe du monde</h1>
+            <table class="infobox" style="background:#f9f9f9">
+              <tbody><tr><td>Infobox</td></tr></tbody>
+            </table>
+            <table id="matches" style="background:var(--couleur-fond-boite-grise, #f9f9f9); color:inherit;">
+              <tbody>
+                <tr>
+                  <td bgcolor="#000080">Nuit</td>
+                  <td style="background:#dfd; color:#c00">Score</td>
+                  <td style="background:transparent">Vide</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `),
+    );
+    const service = new WikipediaService();
+
+    const article = await service.getArticle('Coupe du monde', 'fr');
+
+    expect(article.contentHtml).toContain(
+      '<table id="matches" style="background:var(--couleur-fond-boite-grise, #f9f9f9); color:inherit;" class="kp-bg-light">',
+    );
+    // Legacy bgcolor attributes count too, and a cell that pins its own text
+    // colour or stays transparent is left alone.
+    expect(article.contentHtml).toContain(
+      '<td bgcolor="#000080" class="kp-bg-dark">Nuit</td>',
+    );
+    expect(article.contentHtml).toContain(
+      '<td style="background:#dfd; color:#c00">Score</td>',
+    );
+    expect(article.contentHtml).toContain(
+      '<td style="background:transparent">Vide</td>',
+    );
+    expect(article.infoboxHtml).toContain('kp-bg-light');
+  });
+
   it('keeps file links and images inside the infobox', async () => {
     fetchMock.mockResolvedValue(
       createHtmlResponse(`

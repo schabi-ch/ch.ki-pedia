@@ -1,5 +1,7 @@
-import imprintPage from '../de/imprint-page';
-import privacyPage from '../de/privacy-page';
+import about from '../de/about';
+import education from './education';
+import imprintPage from './imprint-page';
+import privacyPage from './privacy-page';
 
 export default {
   failed: 'Azione fallita',
@@ -24,20 +26,8 @@ export default {
     whatIs: 'Che cos’è {brandName}?',
     inClass: '{brandName} in classe',
   },
-  education: {
-    title: '{brandName} in classe',
-    lead:
-      '{brandName} aiuta docenti e studenti a usare i contenuti di Wikipedia in classe in modo chiaro e basato sulle fonti.',
-    forTeachersTitle: 'Per i docenti',
-    forTeachersBody:
-      'Con {brandName} puoi adattare articoli Wikipedia complessi al livello di lettura adatto e usarli per attività didattiche.',
-    inClassTitle: 'Uso in classe',
-    inClassBody:
-      'Gli studenti possono leggere, semplificare e porre domande direttamente sui contenuti degli articoli, mantenendo il riferimento alla fonte originale.',
-    learningGoalsTitle: 'Obiettivi di apprendimento',
-    learningGoalsBody:
-      'Lavorare con Wikipedia rafforza l’educazione ai media, la comprensione del testo e il pensiero critico verso risposte generate dall’IA.',
-  },
+  education,
+  about,
   imprintPage,
   privacyPage,
   search: {
@@ -52,7 +42,7 @@ export default {
     showOriginalArticle: "Mostra l'articolo originale",
     langLabelStart: 'Questo articolo è stato scritto in',
     langLabelEnd: '.',
-    readingLevel: 'Semplificare il testo',
+    readingLevel: 'Semplifica il testo',
     readingLevelLabel: 'Livello di lettura',
     articleLangLabel: "Lingua dell'articolo",
     languageSubtitle: 'Lingua dell’articolo: {lang}',
@@ -60,7 +50,7 @@ export default {
     cefrLevel: 'QCER',
     schoolGrade: 'Classe',
     simplify: {
-      title: 'Semplificare il testo',
+      title: 'Semplifica il testo',
       byGrade: {
         subtitle: 'Per livello scolastico',
         description: 'La lunghezza del testo e la lingua vengono adattate, 3 livelli per classe',
@@ -347,7 +337,7 @@ export default {
     zza: 'Zazaki',
   },
   chat: {
-    title: 'Fai domande',
+    title: 'Fai una domanda',
     placeholder: 'Fai una domanda su questo articolo…',
     send: 'Invia',
     stop: 'Interrompi la risposta',

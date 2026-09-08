@@ -250,6 +250,33 @@ a:hover {
 }
 
 //////////////////////////////////////////////////////////////////////////////////
+// Wikipedia inline background colours
+//////////////////////////////////////////////////////////////////////////////////
+// Wikipedia markup pins background colours inline on many tables and cells but
+// leaves the text colour to inherit, which turns into light-on-light in dark
+// mode. The backend tags those elements by background brightness
+// (annotateInlineBackgrounds), so the text colour can follow the pinned
+// background instead of the theme. Elements that bring their own inline colour
+// are never tagged.
+
+.kp-bg-light {
+  color: #202122 !important;
+}
+
+.kp-bg-dark {
+  color: #f8f9fa !important;
+}
+
+// Links keep the theme's link colour unless the background works against it —
+// a light table in dark mode, or a dark table in light mode. `inherit` rather
+// than a fixed colour so a tagged element nested in one of the opposite tone
+// still picks up its parent's text colour.
+.body--dark .kp-bg-light a,
+.body--light .kp-bg-dark a {
+  color: inherit !important;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
 // Legal / Info pages
 //////////////////////////////////////////////////////////////////////////////////
 

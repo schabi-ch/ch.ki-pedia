@@ -1,5 +1,7 @@
-import imprintPage from '../de/imprint-page';
-import privacyPage from '../de/privacy-page';
+import about from './about';
+import education from './education';
+import imprintPage from './imprint-page';
+import privacyPage from './privacy-page';
 
 export default {
   failed: 'Action failed',
@@ -24,20 +26,8 @@ export default {
     whatIs: 'What is {brandName}?',
     inClass: '{brandName} in the classroom',
   },
-  education: {
-    title: '{brandName} in the classroom',
-    lead:
-      '{brandName} helps teachers and students use Wikipedia content in class in a clear, source-based way.',
-    forTeachersTitle: 'For teachers',
-    forTeachersBody:
-      'With {brandName}, you can adapt complex Wikipedia articles to suitable reading levels and use them for classroom tasks.',
-    inClassTitle: 'Use in class',
-    inClassBody:
-      'Students can read, simplify and ask questions directly about the article content while staying close to the original source.',
-    learningGoalsTitle: 'Learning goals',
-    learningGoalsBody:
-      'Working with Wikipedia supports media literacy, reading comprehension and critical thinking about AI-generated answers.',
-  },
+  education,
+  about,
   imprintPage,
   privacyPage,
   search: {
@@ -117,8 +107,8 @@ export default {
       stars: '{score} of {total} stars',
     },
     glossary: {
-      action: 'Important terms',
-      title: 'Important terms',
+      action: 'Key terms',
+      title: 'Key terms',
       term: 'Term',
       explanation: 'Explanation',
     },

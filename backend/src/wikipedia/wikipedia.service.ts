@@ -12,6 +12,13 @@ import {
   sortAppendixSections,
   type AppendixKind,
 } from './appendix-sections';
+import {
+  DARK_BACKGROUND_CLASS,
+  LIGHT_BACKGROUND_CLASS,
+  classifyBackgroundValue,
+  findBackgroundValue,
+  hasExplicitTextColor,
+} from './inline-background-colors';
 
 // Inlined from turndown-plugin-gfm (tables only)
 const _indexOf = Array.prototype.indexOf;
@@ -334,6 +341,8 @@ export class WikipediaService {
       node.removeAttr('data-parsoid');
     });
 
+    this.annotateInlineBackgrounds($);
+
     // Mark Begriffsklärungshinweis div to keep as raw HTML
     $('#Vorlage_Begriffsklärungshinweis').attr('data-keep-html', 'true');
 
@@ -522,6 +531,31 @@ export class WikipediaService {
     const body = $('body');
     const outHtml = body.length ? (body.html() ?? '') : $.html();
     return { html: outHtml, title, infoboxHtml, appendixHtml };
+  }
+
+  /**
+   * Tag elements whose inline style (or legacy `bgcolor` attribute) pins a
+   * background colour but leaves the text colour to inherit. Wikipedia authors
+   * these against a light page, so in dark mode they render light-on-light.
+   * The theme is unknown here, so we only record how bright the background is
+   * and let the frontend pick a readable text colour for it.
+   */
+  private annotateInlineBackgrounds($: cheerio.CheerioAPI): void {
+    $('[style], [bgcolor]').each((_, el) => {
+      const node = $(el);
+      const style = node.attr('style') ?? '';
+      if (hasExplicitTextColor(style)) return;
+
+      const background = findBackgroundValue(style) ?? node.attr('bgcolor');
+      if (!background) return;
+
+      const tone = classifyBackgroundValue(background);
+      if (!tone) return;
+
+      node.addClass(
+        tone === 'light' ? LIGHT_BACKGROUND_CLASS : DARK_BACKGROUND_CLASS,
+      );
+    });
   }
 
   private isNonArticleWikiTitle(title: string): boolean {
