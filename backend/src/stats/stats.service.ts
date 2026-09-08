@@ -5,10 +5,11 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, timingSafeEqual } from 'crypto';
-import type { Pool, RowDataPacket } from 'mysql2/promise';
+import type { Pool, PoolOptions, RowDataPacket } from 'mysql2/promise';
 import { currentMonthPrimary } from './month-primary';
 import type { CefrLevel, GradeLevel, SimplifyVariant } from '../ai/ai.service';
 
@@ -148,10 +149,19 @@ const STATS_COLUMNS: readonly StatsColumn[] = [
   'gui_lang_en',
 ];
 
+// After a connection failure the pool is dropped; a new one is created at the
+// next stats call, but not more often than this, so an outage does not turn
+// every page view into a reconnect attempt.
+const RECONNECT_BACKOFF_MS = 30_000;
+
 @Injectable()
 export class StatsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StatsService.name);
   private pool: Pool | null = null;
+  private poolOptions: PoolOptions | null = null;
+  private createPool: (typeof import('mysql2/promise'))['createPool'] | null =
+    null;
+  private nextReconnectAt = 0;
   private disabledWarningLogged = false;
   private connectionFailureLogged = false;
 
@@ -167,15 +177,14 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    let createPool: (typeof import('mysql2/promise'))['createPool'];
     try {
-      createPool = await this.loadMysqlCreatePool();
+      this.createPool = await this.loadMysqlCreatePool();
     } catch {
       this.logger.warn('Stats logging disabled: mysql2 package not available');
       return;
     }
 
-    this.pool = createPool({
+    this.poolOptions = {
       host,
       port: Number(
         this.configService.get<number | string>('MYSQL_PORT') ?? 3306,
@@ -186,11 +195,34 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       waitForConnections: true,
       connectionLimit: 5,
       namedPlaceholders: false,
-    });
+    };
+    this.pool = this.createPool(this.poolOptions);
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.pool?.end();
+  }
+
+  // Returns the pool, recreating it after a dropped connection once the
+  // backoff has elapsed. Null means stats are not configured (or the retry
+  // window has not passed yet).
+  private ensurePool(): Pool | null {
+    if (this.pool) {
+      return this.pool;
+    }
+    if (!this.createPool || !this.poolOptions) {
+      return null;
+    }
+    if (Date.now() < this.nextReconnectAt) {
+      return null;
+    }
+    this.logger.log('Reconnecting to the stats MySQL database');
+    this.pool = this.createPool(this.poolOptions);
+    return this.pool;
+  }
+
+  private get isConfigured(): boolean {
+    return this.createPool !== null && this.poolOptions !== null;
   }
 
   protected async loadMysqlCreatePool(): Promise<
@@ -265,13 +297,21 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException('Invalid statistics password');
     }
 
-    if (!this.pool) {
-      this.logDisabledWarning();
-      return [];
+    const pool = this.ensurePool();
+    if (!pool) {
+      if (!this.isConfigured) {
+        this.logDisabledWarning();
+        throw new ServiceUnavailableException(
+          'Statistics are not configured on this server (MySQL settings missing)',
+        );
+      }
+      throw new ServiceUnavailableException(
+        'Statistics database is currently unreachable, please try again shortly',
+      );
     }
 
     try {
-      const [rows] = await this.pool.query<(MonthlyStatsRow & RowDataPacket)[]>(
+      const [rows] = await pool.query<(MonthlyStatsRow & RowDataPacket)[]>(
         `SELECT monthPrimary, ${STATS_COLUMNS.join(', ')} FROM visitors ORDER BY monthPrimary DESC`,
       );
       return rows.map((row) => ({
@@ -308,25 +348,32 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       }));
     } catch (error) {
       if (this.disableStatsOnConnectionFailure(error)) {
-        return [];
+        throw new ServiceUnavailableException(
+          'Statistics database is currently unreachable, please try again shortly',
+        );
       }
       this.logger.error(
         'Failed to read monthly statistics',
         error instanceof Error ? error.stack : String(error),
       );
-      throw new InternalServerErrorException('Failed to read monthly statistics');
+      throw new InternalServerErrorException(
+        'Failed to read monthly statistics',
+      );
     }
   }
 
   private async incrementColumn(column: StatsColumn): Promise<void> {
-    if (!this.pool) {
-      this.logDisabledWarning();
+    const pool = this.ensurePool();
+    if (!pool) {
+      if (!this.isConfigured) {
+        this.logDisabledWarning();
+      }
       return;
     }
 
     try {
       const monthPrimary = currentMonthPrimary();
-      await this.pool.execute(
+      await pool.execute(
         `INSERT INTO visitors (monthPrimary, ${column}) VALUES (?, 1) ON DUPLICATE KEY UPDATE ${column} = ${column} + 1`,
         [monthPrimary],
       );
@@ -355,7 +402,9 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
     return SITE_HOST_COLUMNS[normalizedHost] ?? null;
   }
 
-  private getGuiLanguageColumn(guiLang: string | undefined): StatsColumn | null {
+  private getGuiLanguageColumn(
+    guiLang: string | undefined,
+  ): StatsColumn | null {
     if (!guiLang) {
       return null;
     }
@@ -389,9 +438,14 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
 
+    const failedPool = this.pool;
     this.pool = null;
+    this.nextReconnectAt = Date.now() + RECONNECT_BACKOFF_MS;
+    void failedPool?.end().catch(() => undefined);
     if (!this.connectionFailureLogged) {
-      this.logger.warn('Stats logging disabled: MySQL connection unavailable');
+      this.logger.warn(
+        `Stats logging paused: MySQL connection unavailable, retrying after ${RECONNECT_BACKOFF_MS / 1000}s`,
+      );
       this.connectionFailureLogged = true;
     }
     return true;

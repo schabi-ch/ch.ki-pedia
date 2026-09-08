@@ -131,15 +131,21 @@
             </div>
             <div v-if="infoboxOpen && showInfobox" class="infobox-print">
               <div class="infobox-header">
-                <div class="infobox-title">Info-Box</div>
+                <div class="infobox-title">{{ $t('article.infobox.title') }}</div>
               </div>
               <div ref="infoboxPrintRef" class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
 
             <div v-if="infoboxOpen && showInfobox" class="infobox-float">
               <div class="infobox-header">
-                <div class="infobox-title">Info-Box</div>
-                <q-btn flat dense round icon="close" size="sm" class="infobox-close" @click="infoboxOpen = false" />
+                <div class="infobox-heading">
+                  <div class="infobox-title">{{ $t('article.infobox.title') }}</div>
+                  <div class="infobox-description">{{ $t('article.infobox.description') }}</div>
+                </div>
+                <q-btn flat dense round icon="close" size="sm" class="infobox-close"
+                  :aria-label="$t('article.infobox.close')" @click="infoboxOpen = false">
+                  <q-tooltip>{{ $t('article.infobox.close') }}</q-tooltip>
+                </q-btn>
               </div>
               <div ref="infoboxFloatRef" class="infobox-body" v-html="store.article.infoboxHtml" />
             </div>
@@ -159,7 +165,12 @@
                 class="q-mt-sm" @click="onCancelSimplify" />
             </div>
             <div v-if="showInfobox && !infoboxOpen" class="info-button-float">
-              <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab" @click="infoboxOpen = true" />
+              <q-btn fab icon="info" color="accent" class="fab-modern info-inline-fab"
+                :aria-label="$t('article.infobox.open')" @click="infoboxOpen = true">
+                <q-tooltip anchor="center left" self="center right" max-width="280px">
+                  {{ $t('article.infobox.open') }}
+                </q-tooltip>
+              </q-btn>
             </div>
             <div class="article-content text-body1" ref="articleContentRef">
               <div v-if="showOriginalHtmlContent" class="article-html" v-html="store.article.contentHtml" />
@@ -253,6 +264,15 @@
               </div>
             </div>
           </div>
+        </transition>
+        <transition name="fade-fab">
+          <q-btn v-if="showBackToTop" fab icon="arrow_upward" color="primary" class="back-to-top-fab fab-modern"
+            :class="{ 'back-to-top-fab--toc-open': store.tocOpen && $q.screen.width > 700 }"
+            :aria-label="$t('article.backToTop')" @click="scrollToTop">
+            <q-tooltip anchor="center right" self="center left">
+              {{ $t('article.backToTop') }}
+            </q-tooltip>
+          </q-btn>
         </transition>
         <q-btn fab icon="auto_fix_high" color="red-8" class="level-fab fab-modern"
           @click="levelSliderOpen = !levelSliderOpen">
@@ -363,6 +383,7 @@ export default defineComponent({
     const openAppendixKeys = ref(new Set<string>());
     let footnoteHighlightEl: HTMLElement | null = null;
     const showBottomCancelButton = ref(false);
+    const showBackToTop = ref(false);
     const copyLoading = ref(false);
     const wordLoading = ref(false);
     const sectionCopyLoading = ref('');
@@ -676,8 +697,19 @@ export default defineComponent({
       showBottomCancelButton.value = !topButtonVisible;
     };
 
+    const BACK_TO_TOP_THRESHOLD = 600;
+
+    const updateBackToTopVisibility = () => {
+      showBackToTop.value = window.scrollY > BACK_TO_TOP_THRESHOLD;
+    };
+
+    function scrollToTop () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     const onViewportChange = () => {
       updateCancelButtonsVisibility();
+      updateBackToTopVisibility();
     };
 
     const makeArticleHistoryState = (): ArticleHistoryState => ({
@@ -763,6 +795,7 @@ export default defineComponent({
       window.addEventListener('popstate', onArticleHistoryPopState);
       document.addEventListener('click', onArticleAnchorClick);
       void nextTick(updateCancelButtonsVisibility);
+      updateBackToTopVisibility();
       void rebuildCitationSegments();
     });
 
@@ -907,7 +940,7 @@ export default defineComponent({
       const articleMarkdown = buildArticleExportMarkdown();
       if (!infoboxOpen.value || !showInfobox.value) return articleMarkdown;
 
-      return `## Info-Box\n\n${store.article?.infoboxHtml ?? ''}\n\n${articleMarkdown}`;
+      return `## ${t('article.infobox.title')}\n\n${store.article?.infoboxHtml ?? ''}\n\n${articleMarkdown}`;
     }
 
     async function onCopySection (section: GradeArticleSection) {
@@ -980,6 +1013,8 @@ export default defineComponent({
       isAppendixOpen,
       setAppendixOpen,
       showBottomCancelButton,
+      showBackToTop,
+      scrollToTop,
       hasInfobox,
       showInfobox,
       showOriginalHtmlContent,
@@ -1840,6 +1875,36 @@ export default defineComponent({
   }
 }
 
+.back-to-top-fab {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 5999;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+
+  :deep(.q-icon) {
+    font-size: 24px !important;
+  }
+}
+
+/* Keep clear of the table-of-contents drawer (280px) while it is docked. */
+.back-to-top-fab--toc-open {
+  left: 304px;
+}
+
+.fade-fab-enter-active,
+.fade-fab-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-fab-enter-from,
+.fade-fab-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .level-fab {
   position: fixed;
   bottom: 100px;
@@ -1939,6 +2004,11 @@ export default defineComponent({
     right: 16px;
   }
 
+  .back-to-top-fab {
+    left: 16px;
+    bottom: 16px;
+  }
+
   .level-fab {
     right: 16px;
     bottom: 96px;
@@ -2014,11 +2084,23 @@ export default defineComponent({
   flex: 0 0 auto;
 }
 
+.infobox-heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .infobox-title {
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.2;
   color: var(--kp-text-primary);
+}
+
+.infobox-description {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--kp-text-secondary);
 }
 
 .infobox-body {
@@ -2093,7 +2175,8 @@ export default defineComponent({
 @media print {
 
   .info-button-float,
-  .infobox-float {
+  .infobox-float,
+  .back-to-top-fab {
     display: none !important;
   }
 

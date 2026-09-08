@@ -1,8 +1,8 @@
 import { api } from 'boot/axios';
+import { getSavedLocale } from 'boot/i18n';
 
 const VISIT_STORAGE_KEY = 'kp_visit';
 const VISITOR_STORAGE_KEY = 'kp_visitor';
-const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 
 interface VisitPayload {
   newSession: boolean;
@@ -40,8 +40,7 @@ function writeStorage(storage: Storage, key: string, value: string): void {
 }
 
 function getGuiLang(): string {
-  const savedLocale = readStorage(window.localStorage, LOCALE_STORAGE_KEY) || 'de';
-  return savedLocale.toLowerCase().split('-')[0] || 'de';
+  return getSavedLocale().toLowerCase().split('-')[0] || 'de';
 }
 
 function buildVisitPayload(payload: Pick<VisitPayload, 'newSession' | 'newVisitor'>): VisitPayload {

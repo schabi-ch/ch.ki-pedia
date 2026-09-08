@@ -171,6 +171,14 @@ export default {
     languageNoticeSearchButton: 'Search article again',
     translateTo: 'Translate to {lang}',
     close: 'Close',
+    backToTop: 'Back to top',
+    infobox: {
+      title: 'Infobox',
+      open: 'Show the infobox of the original article',
+      close: 'Hide infobox',
+      description:
+        'The infobox is the table at the start of the original article. It briefly summarises the most important facts, such as dates, places or figures.',
+    },
   },
   languages: {
     de: 'German',
@@ -353,6 +361,8 @@ export default {
     source: 'Section {number}',
     sourceUnavailable: 'This source belongs to a different article version.',
     askInOriginalArticle: 'Ask again in the original article',
+    exportChat: 'Save chat as Word',
+    exportHeading: 'Chat about “{title}”',
     error: 'Sorry, something went wrong. Please try again.',
   },
   preview: {

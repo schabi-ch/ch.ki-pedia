@@ -22,9 +22,23 @@
 
       <q-banner v-if="errorMessage" class="bg-negative text-white q-my-md" rounded>
         {{ errorMessage }}
+        <template #action>
+          <q-btn flat no-caps label="Try again" :loading="loading" @click="loadStats" />
+        </template>
       </q-banner>
 
-      <q-table v-if="isUnlocked" flat bordered class="stats-table" title="Monthly values" :rows="tableRows"
+      <q-banner v-else-if="isUnlocked && !loading && !monthlyRows.length" class="stats-empty q-my-md" rounded>
+        <template #avatar>
+          <q-icon name="info" color="primary" />
+        </template>
+        No monthly figures were returned. The statistics table in the database is empty, so nothing has been
+        recorded yet.
+        <template #action>
+          <q-btn flat no-caps color="primary" label="Reload" :loading="loading" @click="loadStats" />
+        </template>
+      </q-banner>
+
+      <q-table v-if="isUnlocked && monthlyRows.length" flat bordered class="stats-table" title="Monthly values" :rows="tableRows"
         :columns="tableColumns" row-key="id" :loading="loading" :pagination="pagination" binary-state-sort hide-bottom>
         <template #body-cell-metric="props">
           <q-td :props="props" :class="{ 'metric-section': props.row.isSection }">
@@ -154,6 +168,7 @@ export default defineComponent({
     return {
       password: '',
       monthlyRows: [] as StatsRow[],
+      hasLoadedOnce: false,
       loading: false,
       errorMessage: '',
       pagination: {
@@ -164,7 +179,7 @@ export default defineComponent({
 
   computed: {
     isUnlocked (): boolean {
-      return this.monthlyRows.length > 0 || Boolean(this.password.trim() && this.hasStoredPassword());
+      return this.hasLoadedOnce || this.monthlyRows.length > 0;
     },
 
     sortedMonthlyRows (): StatsRow[] {
@@ -222,11 +237,6 @@ export default defineComponent({
   },
 
   methods: {
-    hasStoredPassword (): boolean {
-      if (typeof window === 'undefined') return false;
-      return Boolean(window.sessionStorage.getItem(STATS_PASSWORD_KEY));
-    },
-
     async loadStats () {
       const trimmedPassword = this.password.trim();
       if (!trimmedPassword) return;
@@ -240,7 +250,8 @@ export default defineComponent({
             'X-Silent-Error': 'true',
           },
         });
-        this.monthlyRows = response.data;
+        this.monthlyRows = Array.isArray(response.data) ? response.data : [];
+        this.hasLoadedOnce = true;
         if (typeof window !== 'undefined') {
           window.sessionStorage.setItem(STATS_PASSWORD_KEY, trimmedPassword);
         }
@@ -248,7 +259,12 @@ export default defineComponent({
         this.monthlyRows = [];
         if (axios.isAxiosError(error) && error.response?.status === 403) {
           this.errorMessage = 'The password is invalid or not configured.';
+          this.hasLoadedOnce = false;
           this.clearStoredPassword();
+        } else if (axios.isAxiosError(error) && error.response?.status === 503) {
+          // Password was accepted, but the statistics database is unavailable.
+          this.hasLoadedOnce = true;
+          this.errorMessage = extractApiErrorMessage(error as AxiosError<ApiErrorPayload>);
         } else if (axios.isAxiosError(error)) {
           this.errorMessage = extractApiErrorMessage(error as AxiosError<ApiErrorPayload>);
         } else {
@@ -263,6 +279,7 @@ export default defineComponent({
       this.clearStoredPassword();
       this.password = '';
       this.monthlyRows = [];
+      this.hasLoadedOnce = false;
       this.errorMessage = '';
     },
 
@@ -297,6 +314,11 @@ export default defineComponent({
 
 .stats-login {
   max-width: 680px;
+}
+
+.stats-empty {
+  background: rgba(82, 40, 129, 0.06);
+  color: inherit;
 }
 
 .stats-table {

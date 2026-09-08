@@ -2,6 +2,7 @@ import { defineBoot } from '#q-app/wrappers';
 import { createI18n } from 'vue-i18n';
 
 import messages from 'src/i18n';
+import { resolveBrandingFromHostname } from 'src/utils/branding';
 
 export type MessageLanguages = keyof typeof messages;
 // Type-define 'en-US' as the master schema for the resource
@@ -23,16 +24,69 @@ declare module 'vue-i18n' {
 
 const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 
-function getSavedLocale(): MessageLanguages {
-  const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
-  if (saved && saved in messages) {
-    return saved as MessageLanguages;
+// Maps a BCP 47 language tag from the browser (e.g. "fr-CH", "en", "de_DE")
+// to a supported UI locale, or null if there is no matching translation.
+function localeForBrowserLanguage(tag: string): MessageLanguages | null {
+  const primary = tag.trim().toLowerCase().replace(/_/g, '-').split('-')[0] ?? '';
+  if (!primary) return null;
+  if (primary === 'en') return 'en-US';
+  return primary in messages ? (primary as MessageLanguages) : null;
+}
+
+// Language the user's browser/OS prefers, restricted to the UI locales we
+// ship. Walks navigator.languages in preference order.
+function detectBrowserLocale(): MessageLanguages | null {
+  if (typeof navigator === 'undefined') return null;
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const tag of candidates) {
+    if (!tag) continue;
+    const locale = localeForBrowserLanguage(tag);
+    if (locale) return locale;
   }
+  return null;
+}
+
+// Fallback when the browser language is not one of ours: the domain hints at
+// the audience (ia-pedia/wikiped-ia → French, ai-pedia → English, else German).
+function localeForHostname(hostname: string): MessageLanguages {
+  const { brandName } = resolveBrandingFromHostname(hostname);
+  if (brandName === 'ia-pedia') return 'fr';
+  if (brandName === 'ai-pedia') return 'en-US';
   return 'de';
 }
 
+function readSavedLocale(): MessageLanguages | null {
+  try {
+    const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (saved && saved in messages) {
+      return saved as MessageLanguages;
+    }
+  } catch {
+    // Storage may be blocked (private mode, disabled cookies); fall through.
+  }
+  return null;
+}
+
+// Initial UI locale: an explicit earlier choice wins, then the browser's
+// preferred language, then a domain-based default. Detection results are not
+// persisted, so a changed browser setting is picked up on the next visit.
+function getSavedLocale(): MessageLanguages {
+  const saved = readSavedLocale();
+  if (saved) return saved;
+
+  const browserLocale = detectBrowserLocale();
+  if (browserLocale) return browserLocale;
+
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  return localeForHostname(hostname);
+}
+
 function saveLocale(locale: string) {
-  localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // Storage may be blocked; the in-memory locale still applies for this visit.
+  }
 }
 
 // Reverse of getWikiLang() in stores/wikipedia.ts: maps a Wikipedia language
@@ -52,4 +106,4 @@ export default defineBoot(({ app }) => {
   app.use(i18n);
 });
 
-export { saveLocale, getSavedLocale, localeForWikiLang, LOCALE_STORAGE_KEY };
+export { saveLocale, getSavedLocale, localeForWikiLang, localeForBrowserLanguage, LOCALE_STORAGE_KEY };

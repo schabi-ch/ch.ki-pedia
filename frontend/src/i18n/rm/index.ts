@@ -171,6 +171,14 @@ export default {
     languageNoticeSearchButton: 'Tschertgar anc ina giada',
     translateTo: 'Translatar en {lang}',
     close: 'Serrar',
+    backToTop: 'Enavos sisum',
+    infobox: {
+      title: 'Infobox',
+      open: 'Mussar l’infobox da l’artitgel original',
+      close: 'Zuppentar l’infobox',
+      description:
+        'L’infobox è la tabella a l’entschatta da l’artitgel original. Ella resumescha curt ils fatgs ils pli impurtants, per exempel datas, lieus u cifras.',
+    },
   },
   languages: {
     de: 'Tudestg',
@@ -353,6 +361,8 @@ export default {
     source: 'Secziun {number}',
     sourceUnavailable: 'Questa funtauna tutga tar in’autra versiun da l’artitgel.',
     askInOriginalArticle: 'Dumandar anc ina giada en l’artitgel original',
+    exportChat: 'Memorisar il chat sco Word',
+    exportHeading: 'Chat davart «{title}»',
     error: 'Perstgisa, insatge n’ha betg funcziunà. Emprova anc ina giada.',
   },
   preview: {

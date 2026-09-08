@@ -171,6 +171,14 @@ export default {
     languageNoticeSearchButton: 'Artikel nochmals suchen',
     translateTo: 'Auf {lang} übersetzen',
     close: 'Schliessen',
+    backToTop: 'Nach oben',
+    infobox: {
+      title: 'Info-Box',
+      open: 'Info-Box des Original-Artikels anzeigen',
+      close: 'Info-Box ausblenden',
+      description:
+        'Die Info-Box ist die Tabelle am Anfang des Original-Artikels. Sie fasst die wichtigsten Fakten kurz zusammen, zum Beispiel Daten, Orte oder Zahlen.',
+    },
   },
   languages: {
     de: 'Deutsch',
@@ -353,6 +361,8 @@ export default {
     source: 'Abschnitt {number}',
     sourceUnavailable: 'Diese Quelle gehört zu einer anderen Artikelversion.',
     askInOriginalArticle: 'Im Original-Artikel nochmals fragen',
+    exportChat: 'Chatverlauf als Word speichern',
+    exportHeading: 'Chatverlauf zu «{title}»',
     error: 'Entschuldigung, etwas ist schiefgelaufen. Bitte versuche es erneut.',
   },
   preview: {

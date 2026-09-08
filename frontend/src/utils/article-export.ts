@@ -75,10 +75,7 @@ function sanitizeFileName (title: string): string {
   return cleaned || 'article';
 }
 
-export async function downloadArticleAsWord (title: string, markdownText: string): Promise<void> {
-  const bodyHtml = buildArticleHtml(title, markdownText);
-  const safeTitle = escapeHtml(title);
-  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title><style>
+const WORD_DOCUMENT_STYLES = `
     body {
       font-family: Aptos, Calibri, Arial, sans-serif;
       font-size: 11pt;
@@ -94,7 +91,11 @@ export async function downloadArticleAsWord (title: string, markdownText: string
       font-size: 20pt;
       margin: 0 0 12pt;
     }
-  </style></head><body>${bodyHtml}</body></html>`;
+`;
+
+async function downloadHtmlAsWord (title: string, bodyHtml: string, fileName: string): Promise<void> {
+  const safeTitle = escapeHtml(title);
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title><style>${WORD_DOCUMENT_STYLES}</style></head><body>${bodyHtml}</body></html>`;
 
   const result = await asBlob(fullHtml);
   const blob = result instanceof Blob
@@ -106,9 +107,43 @@ export async function downloadArticleAsWord (title: string, markdownText: string
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${sanitizeFileName(title)}.docx`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadArticleAsWord (title: string, markdownText: string): Promise<void> {
+  await downloadHtmlAsWord(title, buildArticleHtml(title, markdownText), `${sanitizeFileName(title)}.docx`);
+}
+
+export interface ChatExportMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatExportLabels {
+  heading: string;
+  user: string;
+  assistant: string;
+}
+
+function buildChatHtml (messages: ChatExportMessage[], labels: ChatExportLabels): string {
+  const blocks = messages
+    .filter((message) => message.content.trim())
+    .map((message) => {
+      const speaker = escapeHtml(message.role === 'user' ? labels.user : labels.assistant);
+      return `<h2>${speaker}</h2>\n${renderMarkdownToHtml(message.content)}`;
+    });
+  return `<h1>${escapeHtml(labels.heading)}</h1>\n${blocks.join('\n')}`;
+}
+
+export async function downloadChatAsWord (
+  articleTitle: string,
+  messages: ChatExportMessage[],
+  labels: ChatExportLabels,
+): Promise<void> {
+  const fileName = `${sanitizeFileName(articleTitle)}_chat.docx`;
+  await downloadHtmlAsWord(labels.heading, buildChatHtml(messages, labels), fileName);
 }

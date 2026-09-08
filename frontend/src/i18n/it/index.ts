@@ -171,6 +171,14 @@ export default {
     languageNoticeSearchButton: 'Cerca di nuovo',
     translateTo: 'Traduci in {lang}',
     close: 'Chiudi',
+    backToTop: 'Torna su',
+    infobox: {
+      title: 'Infobox',
+      open: 'Mostra l’infobox dell’articolo originale',
+      close: 'Nascondi l’infobox',
+      description:
+        'L’infobox è la tabella all’inizio dell’articolo originale. Riassume in breve i fatti più importanti, per esempio date, luoghi o numeri.',
+    },
   },
   languages: {
     de: 'Tedesco',
@@ -353,6 +361,8 @@ export default {
     source: 'Sezione {number}',
     sourceUnavailable: 'Questa fonte appartiene a un’altra versione dell’articolo.',
     askInOriginalArticle: 'Chiedi di nuovo nell’articolo originale',
+    exportChat: 'Salva la conversazione come Word',
+    exportHeading: 'Conversazione su «{title}»',
     error: 'Si è verificato un errore. Riprova.',
   },
   preview: {

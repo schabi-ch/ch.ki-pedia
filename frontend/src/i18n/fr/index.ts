@@ -171,6 +171,14 @@ export default {
     languageNoticeSearchButton: 'Rechercher à nouveau',
     translateTo: 'Traduire en {lang}',
     close: 'Fermer',
+    backToTop: 'Retour en haut',
+    infobox: {
+      title: 'Infobox',
+      open: 'Afficher l’infobox de l’article original',
+      close: 'Masquer l’infobox',
+      description:
+        'L’infobox est le tableau placé au début de l’article original. Elle résume brièvement les faits les plus importants, par exemple des dates, des lieux ou des chiffres.',
+    },
   },
   languages: {
     de: 'Allemand',
@@ -353,6 +361,8 @@ export default {
     source: 'Section {number}',
     sourceUnavailable: 'Cette source appartient à une autre version de l’article.',
     askInOriginalArticle: 'Reposer la question dans l’article original',
+    exportChat: 'Enregistrer la conversation en Word',
+    exportHeading: 'Conversation sur « {title} »',
     error: 'Désolé, une erreur s’est produite. Veuillez réessayer.',
   },
   preview: {

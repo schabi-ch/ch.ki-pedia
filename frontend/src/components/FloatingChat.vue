@@ -5,6 +5,10 @@
         <q-icon name="chat" class="q-mr-xs" />
         <span class="text-subtitle1 text-weight-medium col">{{ $t('chat.title') }}</span>
 
+        <q-btn flat round dense icon="download" size="sm" class="chat-export-btn" :loading="exportLoading"
+          :disable="!store.chatMessages.length" :aria-label="$t('chat.exportChat')" @click="exportChatAsWord">
+          <q-tooltip>{{ $t('chat.exportChat') }}</q-tooltip>
+        </q-btn>
         <q-btn flat dense no-caps icon="delete_sweep" class="chat-clear-btn"
           :disable="!store.chatMessages.length && !store.chatLoading" @click="store.clearChatHistory()">
           <q-tooltip>{{ $t('chat.clearHistory') }}</q-tooltip>
@@ -80,7 +84,7 @@ import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useWikipediaStore } from 'stores/wikipedia';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
-import { copyTextToClipboard } from 'src/utils/article-export';
+import { copyTextToClipboard, downloadChatAsWord } from 'src/utils/article-export';
 
 export default defineComponent({
   name: 'FloatingChat',
@@ -120,6 +124,7 @@ export default defineComponent({
     return {
       chatInput: '',
       isExpanded: false,
+      exportLoading: false,
     };
   },
 
@@ -156,6 +161,24 @@ export default defineComponent({
       if (!message) return;
       this.chatInput = '';
       await this.store.sendMessage(message);
+    },
+
+    async exportChatAsWord () {
+      if (!this.store.chatMessages.length || this.exportLoading) return;
+      this.exportLoading = true;
+      try {
+        const articleTitle = this.store.article?.title ?? '';
+        await downloadChatAsWord(articleTitle, this.store.chatMessages, {
+          heading: this.t('chat.exportHeading', { title: articleTitle }),
+          user: this.t('chat.you'),
+          assistant: this.t('chat.assistant'),
+        });
+      } catch (err) {
+        console.error('Chat Word export failed', err);
+        this.quasar.notify({ type: 'negative', message: this.t('article.wordError') });
+      } finally {
+        this.exportLoading = false;
+      }
     },
 
     async copyAnswerToClipboard (content: string) {
@@ -211,6 +234,10 @@ export default defineComponent({
 .chat-clear-btn {
   border-radius: 8px;
   flex: 0 1 auto;
+}
+
+.chat-export-btn {
+  margin-right: 4px;
 }
 
 .chat-messages {

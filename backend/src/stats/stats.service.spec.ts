@@ -10,7 +10,11 @@ const mockCreatePool: jest.MockedFunction<(...args: unknown[]) => MockPool> =
   jest.fn<(...args: unknown[]) => MockPool>();
 
 import { ConfigService } from '@nestjs/config';
-import { ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { StatsService } from './stats.service';
 
 class TestStatsService extends StatsService {
@@ -58,7 +62,9 @@ describe('StatsService', () => {
   });
 
   it('creates a MySQL pool from configuration', async () => {
-    const service = new TestStatsService(createConfigService(createMysqlConfig()));
+    const service = new TestStatsService(
+      createConfigService(createMysqlConfig()),
+    );
 
     await service.onModuleInit();
 
@@ -212,7 +218,7 @@ describe('StatsService', () => {
     ]);
   });
 
-  it('disables stats logging after a connection refusal', async () => {
+  it('pauses stats logging after a connection refusal', async () => {
     executeMock.mockRejectedValueOnce(
       Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:3306'), {
         code: 'ECONNREFUSED',
@@ -225,6 +231,35 @@ describe('StatsService', () => {
     await service.incrementTranslation();
 
     expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(endMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconnects after the backoff once the connection was lost', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    try {
+      nowSpy.mockReturnValue(1_000_000);
+      executeMock.mockRejectedValueOnce(
+        Object.assign(new Error('Connection lost'), {
+          code: 'PROTOCOL_CONNECTION_LOST',
+        }),
+      );
+      const service = await createEnabledService();
+
+      await service.incrementArticleView();
+      expect(mockCreatePool).toHaveBeenCalledTimes(1);
+
+      nowSpy.mockReturnValue(1_000_000 + 5_000);
+      await service.incrementTranslation();
+      expect(mockCreatePool).toHaveBeenCalledTimes(1);
+      expect(executeMock).toHaveBeenCalledTimes(1);
+
+      nowSpy.mockReturnValue(1_000_000 + 31_000);
+      await service.incrementTranslation();
+      expect(mockCreatePool).toHaveBeenCalledTimes(2);
+      expect(executeMock).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('returns monthly statistics with the correct password', async () => {
@@ -317,7 +352,7 @@ describe('StatsService', () => {
     );
   });
 
-  it('returns an empty monthly statistics list when MySQL is unreachable', async () => {
+  it('reports monthly statistics as unavailable when MySQL is unreachable', async () => {
     queryMock.mockRejectedValueOnce(
       Object.assign(new Error('getaddrinfo ENOTFOUND mysql.example'), {
         code: 'ENOTFOUND',
@@ -325,7 +360,25 @@ describe('StatsService', () => {
     );
     const service = await createEnabledService();
 
-    await expect(service.getMonthlyStats('stats-pass')).resolves.toEqual([]);
+    await expect(service.getMonthlyStats('stats-pass')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    // Still unreachable within the backoff window: no new pool, same error.
+    await expect(service.getMonthlyStats('stats-pass')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(mockCreatePool).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports monthly statistics as unavailable when MySQL is not configured', async () => {
+    const service = new TestStatsService(
+      createConfigService({ STATS_ADMIN_PASSWORD: 'stats-pass' }),
+    );
+    await service.onModuleInit();
+
+    await expect(service.getMonthlyStats('stats-pass')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 
   it('rejects monthly statistics with a wrong password', async () => {
