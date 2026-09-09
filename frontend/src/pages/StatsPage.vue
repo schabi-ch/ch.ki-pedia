@@ -69,6 +69,11 @@ import type { QTableColumn } from 'quasar';
 
 const STATS_PASSWORD_KEY = 'kp_stats_password';
 
+// Swiss thousands grouping with a plain apostrophe, e.g. 1'345'500.
+function formatSwissNumber (value: number): string {
+  return Math.trunc(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+}
+
 interface StatsRow {
   monthPrimary: string;
   visits: number;
@@ -191,6 +196,7 @@ export default defineComponent({
         name: row.monthPrimary,
         label: row.monthPrimary,
         field: (metricRow: MetricRow) => metricRow[row.monthPrimary] ?? 0,
+        format: (value: string | number) => (typeof value === 'number' ? formatSwissNumber(value) : value),
         align: 'left' as const,
         sortable: true,
       }));

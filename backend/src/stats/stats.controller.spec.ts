@@ -1,8 +1,20 @@
 /// <reference types="jest" />
 
 import { ForbiddenException } from '@nestjs/common';
+import type { Request } from 'express';
 import { StatsController } from './stats.controller';
 import type { StatsService } from './stats.service';
+
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+const CRAWLER_UA =
+  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+
+function request(userAgent: string | undefined): Request {
+  return {
+    headers: userAgent === undefined ? {} : { 'user-agent': userAgent },
+  } as Request;
+}
 
 describe('StatsController', () => {
   let statsService: jest.Mocked<StatsService>;
@@ -17,7 +29,7 @@ describe('StatsController', () => {
   });
 
   it('tracks page views with default flags', async () => {
-    await controller.visit(undefined);
+    await controller.visit(undefined, request(BROWSER_UA));
 
     expect(statsService.incrementVisit.mock.calls).toEqual([
       [
@@ -32,12 +44,15 @@ describe('StatsController', () => {
   });
 
   it('tracks new sessions and visitors', async () => {
-    await controller.visit({
-      newSession: true,
-      newVisitor: true,
-      siteHost: 'ki-pedia.ch',
-      guiLang: 'de',
-    });
+    await controller.visit(
+      {
+        newSession: true,
+        newVisitor: true,
+        siteHost: 'ki-pedia.ch',
+        guiLang: 'de',
+      },
+      request(BROWSER_UA),
+    );
 
     expect(statsService.incrementVisit.mock.calls).toEqual([
       [
@@ -49,6 +64,19 @@ describe('StatsController', () => {
         },
       ],
     ]);
+  });
+
+  it('ignores page views from crawlers and clients without user agent', async () => {
+    await controller.visit(
+      { newSession: true, newVisitor: true },
+      request(CRAWLER_UA),
+    );
+    await controller.visit(
+      { newSession: true, newVisitor: true },
+      request(undefined),
+    );
+
+    expect(statsService.incrementVisit.mock.calls).toEqual([]);
   });
 
   it('returns monthly statistics for the provided password header', async () => {

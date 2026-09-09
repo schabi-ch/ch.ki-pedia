@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Post,
+  Req,
+} from '@nestjs/common';
+import type { Request } from 'express';
+import { isBotRequest } from '../bots/bot-detection';
 import { StatsService, type MonthlyStatsRow } from './stats.service';
 
 interface VisitDto {
@@ -14,7 +24,15 @@ export class StatsController {
 
   @Post('visit')
   @HttpCode(204)
-  async visit(@Body() body: VisitDto | undefined): Promise<void> {
+  async visit(
+    @Body() body: VisitDto | undefined,
+    @Req() req: Request,
+  ): Promise<void> {
+    // Crawlers that execute the SPA's JavaScript would otherwise count as
+    // visits, visitors and pages. They get the same empty 204 as everyone.
+    if (isBotRequest(req)) {
+      return;
+    }
     await this.statsService.incrementVisit({
       newSession: body?.newSession === true,
       newVisitor: body?.newVisitor === true,

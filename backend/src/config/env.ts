@@ -23,6 +23,24 @@ const envSchema = z
     MYSQL_PASSWORD: z.string().optional(),
     MYSQL_DATABASE: z.string().optional(),
     STATS_ADMIN_PASSWORD: z.string().optional(),
+    // Per-IP rate limits for the AI routes and the Wikipedia proxy. A whole
+    // school usually shares one public IP, so the defaults are sized for
+    // ~200 students working at the same time (see rate-limit.config.ts).
+    RATE_LIMIT_AI_PER_MINUTE: z.coerce.number().int().positive().default(400),
+    RATE_LIMIT_AI_PER_HOUR: z.coerce.number().int().positive().default(4000),
+    RATE_LIMIT_WIKIPEDIA_PER_MINUTE: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(1000),
+    RATE_LIMIT_WIKIPEDIA_PER_HOUR: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(8000),
+    // Express "trust proxy" value, required behind a reverse proxy so the
+    // rate limit sees the client IP (X-Forwarded-For), see trust-proxy.ts.
+    TRUST_PROXY: z.string().optional(),
   })
   .passthrough();
 

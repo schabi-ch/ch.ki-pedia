@@ -542,7 +542,7 @@ describe('AiService', () => {
     );
     expect(systemInstruction).toContain('"isOriginalArticle": false');
     expect(systemInstruction).toContain(
-      'Base your answers on the article content and the infobox content',
+      'Answer ONLY using facts stated in the article content and the infobox content',
     );
     expect(systemInstruction).toContain(
       'the information may be in the original article',
