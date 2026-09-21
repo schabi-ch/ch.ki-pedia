@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { ForbiddenException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { StatsController } from './stats.controller';
 import type { StatsService } from './stats.service';
@@ -10,11 +11,24 @@ const BROWSER_UA =
 const CRAWLER_UA =
   'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 
-function request(userAgent: string | undefined): Request {
+function request(
+  userAgent: string | undefined,
+  extraHeaders: Record<string, string> = {},
+): Request {
   return {
-    headers: userAgent === undefined ? {} : { 'user-agent': userAgent },
-  } as Request;
+    ip: '203.0.113.5',
+    ips: [],
+    headers: {
+      host: 'ki-pedia.ch',
+      ...(userAgent === undefined ? {} : { 'user-agent': userAgent }),
+      ...extraHeaders,
+    },
+  } as unknown as Request;
 }
+
+const configService = {
+  get: () => undefined,
+} as unknown as ConfigService;
 
 describe('StatsController', () => {
   let statsService: jest.Mocked<StatsService>;
@@ -25,7 +39,7 @@ describe('StatsController', () => {
       incrementVisit: jest.fn().mockResolvedValue(undefined),
       getMonthlyStats: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<StatsService>;
-    controller = new StatsController(statsService);
+    controller = new StatsController(statsService, configService);
   });
 
   it('tracks page views with default flags', async () => {
@@ -79,6 +93,29 @@ describe('StatsController', () => {
     expect(statsService.incrementVisit.mock.calls).toEqual([]);
   });
 
+  it('ignores page views not posted by the app itself', async () => {
+    await controller.visit(
+      { newSession: true },
+      request(BROWSER_UA, { 'sec-fetch-site': 'cross-site' }),
+    );
+    await controller.visit(
+      { newSession: true },
+      request(BROWSER_UA, { origin: 'https://evil.example' }),
+    );
+
+    expect(statsService.incrementVisit.mock.calls).toEqual([]);
+
+    await controller.visit(
+      { newSession: true },
+      request(BROWSER_UA, {
+        origin: 'https://ki-pedia.ch',
+        'sec-fetch-site': 'same-origin',
+      }),
+    );
+
+    expect(statsService.incrementVisit.mock.calls).toHaveLength(1);
+  });
+
   it('returns monthly statistics for the provided password header', async () => {
     statsService.getMonthlyStats.mockResolvedValue([
       {
@@ -105,6 +142,9 @@ describe('StatsController', () => {
         pages: 25,
         url_ki_pedia_ch: 26,
         url_ki_pedia_org: 27,
+        url_ia_pedia_ch: 37,
+        url_ia_pedia_org: 38,
+        url_ai_pedia_ch: 39,
         url_wikiped_ia_ch: 28,
         url_wikiped_ia_org: 29,
         gui_lang_de: 30,

@@ -97,6 +97,9 @@ CREATE TABLE IF NOT EXISTS visitors (
   translations int(11) NOT NULL DEFAULT 0,
   url_ki_pedia_ch int(11) NOT NULL DEFAULT 0,
   url_ki_pedia_org int(11) NOT NULL DEFAULT 0,
+  url_ia_pedia_ch int(11) NOT NULL DEFAULT 0,
+  url_ia_pedia_org int(11) NOT NULL DEFAULT 0,
+  url_ai_pedia_ch int(11) NOT NULL DEFAULT 0,
   url_wikiped_ia_ch int(11) NOT NULL DEFAULT 0,
   url_wikiped_ia_org int(11) NOT NULL DEFAULT 0,
   gui_lang_de int(11) NOT NULL DEFAULT 0,
@@ -124,7 +127,10 @@ ALTER TABLE visitors ADD COLUMN simplify_grade_9 int(11) NOT NULL DEFAULT 0 AFTE
 ALTER TABLE visitors ADD COLUMN translations int(11) NOT NULL DEFAULT 0 AFTER simplify_grade_9;
 ALTER TABLE visitors ADD COLUMN url_ki_pedia_ch int(11) NOT NULL DEFAULT 0 AFTER pages;
 ALTER TABLE visitors ADD COLUMN url_ki_pedia_org int(11) NOT NULL DEFAULT 0 AFTER url_ki_pedia_ch;
-ALTER TABLE visitors ADD COLUMN url_wikiped_ia_ch int(11) NOT NULL DEFAULT 0 AFTER url_ki_pedia_org;
+ALTER TABLE visitors ADD COLUMN url_ia_pedia_ch int(11) NOT NULL DEFAULT 0 AFTER url_ki_pedia_org;
+ALTER TABLE visitors ADD COLUMN url_ia_pedia_org int(11) NOT NULL DEFAULT 0 AFTER url_ia_pedia_ch;
+ALTER TABLE visitors ADD COLUMN url_ai_pedia_ch int(11) NOT NULL DEFAULT 0 AFTER url_ia_pedia_org;
+ALTER TABLE visitors ADD COLUMN url_wikiped_ia_ch int(11) NOT NULL DEFAULT 0 AFTER url_ai_pedia_ch;
 ALTER TABLE visitors ADD COLUMN url_wikiped_ia_org int(11) NOT NULL DEFAULT 0 AFTER url_wikiped_ia_ch;
 ALTER TABLE visitors ADD COLUMN gui_lang_de int(11) NOT NULL DEFAULT 0 AFTER url_wikiped_ia_org;
 ALTER TABLE visitors ADD COLUMN gui_lang_fr int(11) NOT NULL DEFAULT 0 AFTER gui_lang_de;
@@ -135,6 +141,7 @@ ALTER TABLE visitors ADD COLUMN gui_lang_en int(11) NOT NULL DEFAULT 0 AFTER gui
 
 Falls `simplify_grade_1` bis `simplify_grade_3` noch existieren, koennen sie mit `src/stats/drop-simplify-grade-1-3.sql` entfernt werden.
 Die URL- und GUI-Sprachspalten fuer bestehende Datenbanken koennen mit `src/stats/add-visit-url-gui-lang-columns.sql` angelegt werden.
+Die Spalten fuer ia-pedia.ch, ia-pedia.org und ai-pedia.ch koennen in bestehenden Datenbanken mit `src/stats/add-ia-ai-pedia-url-columns.sql` nachgetragen werden.
 
 ## Project setup
 

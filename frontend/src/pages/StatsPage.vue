@@ -85,6 +85,9 @@ interface StatsRow {
   chat_questions: number;
   url_ki_pedia_ch: number;
   url_ki_pedia_org: number;
+  url_ia_pedia_ch: number;
+  url_ia_pedia_org: number;
+  url_ai_pedia_ch: number;
   url_wikiped_ia_ch: number;
   url_wikiped_ia_org: number;
   gui_lang_de: number;
@@ -132,9 +135,9 @@ interface MetricRow {
 }
 
 const metricDefinitions: MetricDefinition[] = [
-  { type: 'metric', key: 'visits', label: 'Visits', info: 'New browser sessions that loaded ki-pedia during the month.' },
-  { type: 'metric', key: 'visitors', label: 'Visitors', info: 'Unique returning-or-new browsers counted once per day during the month.' },
-  { type: 'metric', key: 'pages', label: 'Pages', info: 'All tracked page views, including route changes inside the app.' },
+  { type: 'metric', key: 'visits', label: 'Visits', info: 'New browser sessions in the month. A session counts once a person is present: after the first interaction or 8 seconds with the tab visible. Automated browsers and the statistics page are ignored.' },
+  { type: 'metric', key: 'visitors', label: 'Visitors', info: 'Browsers counted once per day (same presence rule as visits).' },
+  { type: 'metric', key: 'pages', label: 'Pages', info: 'Page views including route changes inside the app, excluding the statistics page and automated browsers.' },
   { type: 'metric', key: 'article_views', label: 'Articles', info: 'Successful Wikipedia article loads served by the backend.' },
   { type: 'metric', key: 'translations', label: 'Translations', info: 'Article translation requests completed through the AI backend.' },
   { type: 'metric', key: 'quizzes', label: 'Quizzes', info: 'Section quiz generation requests sent to the AI backend.' },
@@ -155,6 +158,9 @@ const metricDefinitions: MetricDefinition[] = [
   { type: 'section', label: 'URLs' },
   { type: 'metric', key: 'url_ki_pedia_ch', label: 'ki-pedia.ch', info: 'New sessions started on the ki-pedia.ch host.' },
   { type: 'metric', key: 'url_ki_pedia_org', label: 'ki-pedia.org', info: 'New sessions started on the ki-pedia.org host.' },
+  { type: 'metric', key: 'url_ia_pedia_ch', label: 'ia-pedia.ch', info: 'New sessions started on the ia-pedia.ch host.' },
+  { type: 'metric', key: 'url_ia_pedia_org', label: 'ia-pedia.org', info: 'New sessions started on the ia-pedia.org host.' },
+  { type: 'metric', key: 'url_ai_pedia_ch', label: 'ai-pedia.ch', info: 'New sessions started on the ai-pedia.ch host.' },
   { type: 'metric', key: 'url_wikiped_ia_ch', label: 'wikiped-ia.ch', info: 'New sessions started on the wikiped-ia.ch host.' },
   { type: 'metric', key: 'url_wikiped_ia_org', label: 'wikiped-ia.org', info: 'New sessions started on the wikiped-ia.org host.' },
 

@@ -33,14 +33,10 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(routerBase),
   });
 
-  let initialRouteSeen = false;
-  Router.afterEach(() => {
-    if (!initialRouteSeen) {
-      initialRouteSeen = true;
-      return;
-    }
-
-    void trackPageView(false);
+  // Usage statistics: every resolved route, including the initial one, is a
+  // page view; useVisitTracking decides what counts as visit/visitor.
+  Router.afterEach((to) => {
+    void trackPageView(to.path);
   });
 
   return Router;

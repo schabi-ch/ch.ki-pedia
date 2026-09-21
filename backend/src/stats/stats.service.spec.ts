@@ -188,6 +188,29 @@ describe('StatsService', () => {
     ]);
   });
 
+  it.each([
+    ['ia-pedia.ch', 'url_ia_pedia_ch'],
+    ['www.ia-pedia.ch', 'url_ia_pedia_ch'],
+    ['ia-pedia.org', 'url_ia_pedia_org'],
+    ['www.ia-pedia.org', 'url_ia_pedia_org'],
+    ['ai-pedia.ch', 'url_ai_pedia_ch'],
+    ['www.ai-pedia.ch', 'url_ai_pedia_ch'],
+  ])('counts new sessions on %s in %s', async (siteHost, column) => {
+    const service = await createEnabledService();
+
+    await service.incrementVisit({
+      newSession: true,
+      newVisitor: false,
+      siteHost,
+    });
+
+    expect(executeMock.mock.calls.map(([sql]) => String(sql))).toEqual([
+      expect.stringContaining('pages = pages + 1'),
+      expect.stringContaining('visits = visits + 1'),
+      expect.stringContaining(`${column} = ${column} + 1`),
+    ]);
+  });
+
   it('does not increment URL or GUI language columns for page views', async () => {
     const service = await createEnabledService();
 
@@ -356,6 +379,9 @@ describe('StatsService', () => {
           pages: 25,
           url_ki_pedia_ch: 26,
           url_ki_pedia_org: 27,
+          url_ia_pedia_ch: 37,
+          url_ia_pedia_org: 38,
+          url_ai_pedia_ch: 39,
           url_wikiped_ia_ch: 28,
           url_wikiped_ia_org: 29,
           gui_lang_de: 30,
@@ -394,6 +420,9 @@ describe('StatsService', () => {
         pages: 25,
         url_ki_pedia_ch: 26,
         url_ki_pedia_org: 27,
+        url_ia_pedia_ch: 37,
+        url_ia_pedia_org: 38,
+        url_ai_pedia_ch: 39,
         url_wikiped_ia_ch: 28,
         url_wikiped_ia_org: 29,
         gui_lang_de: 30,

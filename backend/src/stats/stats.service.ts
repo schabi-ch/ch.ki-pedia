@@ -36,6 +36,9 @@ type StatsColumn =
   | 'pages'
   | 'url_ki_pedia_ch'
   | 'url_ki_pedia_org'
+  | 'url_ia_pedia_ch'
+  | 'url_ia_pedia_org'
+  | 'url_ai_pedia_ch'
   | 'url_wikiped_ia_ch'
   | 'url_wikiped_ia_org'
   | 'gui_lang_de'
@@ -68,6 +71,9 @@ export interface MonthlyStatsRow {
   pages: number;
   url_ki_pedia_ch: number;
   url_ki_pedia_org: number;
+  url_ia_pedia_ch: number;
+  url_ia_pedia_org: number;
+  url_ai_pedia_ch: number;
   url_wikiped_ia_ch: number;
   url_wikiped_ia_org: number;
   gui_lang_de: number;
@@ -103,6 +109,12 @@ const SITE_HOST_COLUMNS: Record<string, StatsColumn> = {
   'www.ki-pedia.ch': 'url_ki_pedia_ch',
   'ki-pedia.org': 'url_ki_pedia_org',
   'www.ki-pedia.org': 'url_ki_pedia_org',
+  'ia-pedia.ch': 'url_ia_pedia_ch',
+  'www.ia-pedia.ch': 'url_ia_pedia_ch',
+  'ia-pedia.org': 'url_ia_pedia_org',
+  'www.ia-pedia.org': 'url_ia_pedia_org',
+  'ai-pedia.ch': 'url_ai_pedia_ch',
+  'www.ai-pedia.ch': 'url_ai_pedia_ch',
   'wikiped-ia.ch': 'url_wikiped_ia_ch',
   'www.wikiped-ia.ch': 'url_wikiped_ia_ch',
   'wikiped-ia.org': 'url_wikiped_ia_org',
@@ -140,6 +152,9 @@ const STATS_COLUMNS: readonly StatsColumn[] = [
   'pages',
   'url_ki_pedia_ch',
   'url_ki_pedia_org',
+  'url_ia_pedia_ch',
+  'url_ia_pedia_org',
+  'url_ai_pedia_ch',
   'url_wikiped_ia_ch',
   'url_wikiped_ia_org',
   'gui_lang_de',
@@ -352,6 +367,9 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
         pages: Number(row.pages),
         url_ki_pedia_ch: Number(row.url_ki_pedia_ch),
         url_ki_pedia_org: Number(row.url_ki_pedia_org),
+        url_ia_pedia_ch: Number(row.url_ia_pedia_ch),
+        url_ia_pedia_org: Number(row.url_ia_pedia_org),
+        url_ai_pedia_ch: Number(row.url_ai_pedia_ch),
         url_wikiped_ia_ch: Number(row.url_wikiped_ia_ch),
         url_wikiped_ia_org: Number(row.url_wikiped_ia_org),
         gui_lang_de: Number(row.gui_lang_de),

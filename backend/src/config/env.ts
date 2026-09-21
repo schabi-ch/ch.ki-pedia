@@ -23,6 +23,9 @@ const envSchema = z
     MYSQL_PASSWORD: z.string().optional(),
     MYSQL_DATABASE: z.string().optional(),
     STATS_ADMIN_PASSWORD: z.string().optional(),
+    // "true" logs one line per /api/stats/visit call (ip, user agent, verdict)
+    // to find out where page views come from. Off by default.
+    STATS_VISIT_LOG: z.string().optional(),
     // Per-IP rate limits for the AI routes and the Wikipedia proxy. A whole
     // school usually shares one public IP, so the defaults are sized for
     // ~200 students working at the same time (see rate-limit.config.ts).
