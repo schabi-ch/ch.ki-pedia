@@ -128,6 +128,7 @@ ch.ki-pedia/
 
 ```bash
 # Check status of dev processes
+
 npm run dev:status
 
 # Stop dev processes and free ports

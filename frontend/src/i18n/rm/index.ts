@@ -36,6 +36,8 @@ export default {
     noResults: 'Nagins resultats chattads per "{query}".',
     results: 'Resultats per "{query}"',
     readMore: "Leger l'artitgel",
+    wikipediaLanguage: 'Wikipedia: {lang}',
+    wikipediaLanguageSwitch: "Midar la lingua da la surfatscha e da Wikipedia",
   },
   article: {
     sourceLink: 'Guardar sin Wikipedia',

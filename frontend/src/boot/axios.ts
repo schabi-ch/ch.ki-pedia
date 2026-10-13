@@ -2,7 +2,7 @@ import { defineBoot } from '#q-app/wrappers';
 import axios, { type AxiosError, type AxiosInstance } from 'axios';
 import { Notify } from 'quasar';
 import messages from 'src/i18n';
-import { getSavedLocale } from './i18n';
+import { getActiveLocale } from './i18n';
 
 export type ApiErrorPayload = {
   message?: string | string[];
@@ -26,7 +26,7 @@ declare module 'vue' {
 const api = axios.create({ baseURL: '/api' });
 
 function getLocalizedMessage(path: string, fallback: string): string {
-  const locale: keyof typeof messages = getSavedLocale();
+  const locale: keyof typeof messages = getActiveLocale();
 
   const value = path
     .split('.')

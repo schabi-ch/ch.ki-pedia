@@ -1,12 +1,12 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { computed, ref } from 'vue';
 import { api, getLocalizedMessage, notifyError, notifySuccess } from 'boot/axios';
+import { getWikiLang } from 'boot/i18n';
 import { LocalStorage } from 'quasar';
 import { getVersion, setVersion } from './article-cache';
 import { infoboxHtmlToText } from 'src/utils/infobox-text';
 import type { ChatCitationSegment } from 'src/utils/article-citations';
 
-const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
 const TOC_OPEN_STORAGE_KEY = 'ki-pedia-article-toc-open';
 const FONT_SIZE_STORAGE_KEY = 'ki-pedia-font-size';
 const FONT_FAMILY_STORAGE_KEY = 'ki-pedia-font-family';
@@ -79,13 +79,6 @@ function persistTocOpen(val: boolean): void {
   } catch {
     // ignore storage errors (e.g. private mode, quota, blocked)
   }
-}
-
-export function getWikiLang(): string {
-  const locale = localStorage.getItem(LOCALE_STORAGE_KEY) || 'de';
-  // Map locale codes to Wikipedia language codes
-  if (locale === 'en-US') return 'en';
-  return locale;
 }
 
 export interface SearchResult {

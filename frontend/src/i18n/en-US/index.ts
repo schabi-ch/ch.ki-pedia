@@ -36,6 +36,8 @@ export default {
     noResults: 'No results found for "{query}".',
     results: 'Results for "{query}"',
     readMore: 'Read article',
+    wikipediaLanguage: 'Wikipedia: {lang}',
+    wikipediaLanguageSwitch: 'Change the language of the interface and Wikipedia',
   },
   article: {
     sourceLink: 'View on Wikipedia',

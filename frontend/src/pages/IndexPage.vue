@@ -54,28 +54,16 @@
                 <q-icon name="search" color="grey-5" />
               </template>
             </q-input>
-            <q-card v-if="suggestions.length > 0 && showSuggestions" class="suggestions-dropdown">
-              <q-list separator>
-                <q-item v-for="(item, index) in suggestions" :key="item.pageid" clickable v-ripple
-                  :active="index === highlightedIndex" active-class="suggestion-active"
-                  @mousedown.prevent="openArticle(item.title)">
-                  <q-item-section avatar class="suggestion-thumb">
-                    <q-avatar rounded size="40px" v-if="item.thumbnail">
-                      <img :src="item.thumbnail" :alt="item.title" />
-                    </q-avatar>
-                    <q-avatar rounded size="40px" color="grey-2" text-color="grey-5" icon="article" v-else />
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="text-weight-bold">{{ item.title }}</q-item-label>
-                    <q-item-label caption class="ellipsis">{{ item.description }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </q-card>
+            <search-suggestions-menu v-model="showSuggestions" :suggestions="suggestions"
+              :highlighted-index="highlightedIndex" @select="openArticle($event.title)" />
           </div>
           <!-- <q-btn color="primary" icon="search" :label="$t('search.button')" type="submit" :loading="store.searchLoading"
             rounded unelevated class="search-btn" no-caps /> -->
         </q-form>
+
+        <div class="search-language-row">
+          <search-language-selector @change="onSearchLanguageChange" />
+        </div>
       </div>
     </div>
 
@@ -85,6 +73,7 @@
           <q-input v-model="searchInput" outlined dense :placeholder="$t('search.placeholder')" class="search-input" />
           <q-btn color="primary" icon="search" dense type="submit" :loading="store.searchLoading" no-caps />
         </q-form>
+        <search-language-selector @change="onSearchLanguageChange" />
       </div>
 
       <div class="text-subtitle1 text-grey-7 q-mb-md">
@@ -125,14 +114,22 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent } from 'vue';
+import { computed, defineComponent, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWikipediaStore, getWikiLang } from 'stores/wikipedia';
+import { useWikipediaStore } from 'stores/wikipedia';
+import { getWikiLang } from 'boot/i18n';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
+import SearchLanguageSelector from 'components/SearchLanguageSelector.vue';
+import SearchSuggestionsMenu from 'components/SearchSuggestionsMenu.vue';
 import { resolveCurrentBranding } from 'src/utils/branding';
 
 export default defineComponent({
   name: 'IndexPage',
+
+  components: {
+    SearchLanguageSelector,
+    SearchSuggestionsMenu,
+  },
 
   setup () {
     const store = useWikipediaStore();
@@ -152,6 +149,15 @@ export default defineComponent({
       getHighlightedSuggestion,
       resetSuggestions,
     } = useSearchSuggestions();
+
+    // The UI language decides which Wikipedia we query, so a switch - here or
+    // in the header - has to redo the current search in the new edition.
+    watch(locale, () => {
+      resetSuggestions();
+      if (store.searchQuery) {
+        void store.search(store.searchQuery);
+      }
+    });
 
     return {
       branding,
@@ -213,6 +219,14 @@ export default defineComponent({
       }
 
       this.onSearch();
+    },
+
+    // The locale watcher in setup() refreshes the results; the input keeps the
+    // typed query so suggestions can be fetched again from the new Wikipedia.
+    onSearchLanguageChange () {
+      if (this.searchInput.trim()) {
+        this.onLiveSearch(this.searchInput);
+      }
     },
 
     openArticle (title: string) {
@@ -305,27 +319,10 @@ export default defineComponent({
   font-size: inherit;
 }
 
-.suggestions-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  max-height: 400px;
-  overflow-y: auto;
-  border-radius: 16px;
-  text-align: left;
-  background: var(--kp-surface);
-  box-shadow: var(--kp-shadow-lg);
-  border: 1px solid rgba(82, 40, 129, 0.08);
-}
-
-.suggestion-active {
-  background: rgba(82, 40, 129, 0.06);
-}
-
-.body--dark .suggestion-active {
-  background: rgba(255, 255, 255, 0.06);
+.search-language-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 
 .suggestion-thumb {

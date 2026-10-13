@@ -81,7 +81,23 @@ function getSavedLocale(): MessageLanguages {
   return localeForHostname(hostname);
 }
 
+// The UI locale this visit really runs on: resolved once by getSavedLocale()
+// and updated by saveLocale() on every explicit switch. Everything outside the
+// i18n instance - above all which Wikipedia we search - must ask here instead
+// of reading localStorage, which is empty whenever the locale came from browser
+// or domain detection (those are deliberately not persisted).
+let activeLocale: MessageLanguages | null = null;
+
+function getActiveLocale(): MessageLanguages {
+  activeLocale ??= getSavedLocale();
+  return activeLocale;
+}
+
 function saveLocale(locale: string) {
+  if (locale in messages) {
+    activeLocale = locale as MessageLanguages;
+  }
+
   try {
     localStorage.setItem(LOCALE_STORAGE_KEY, locale);
   } catch {
@@ -89,7 +105,19 @@ function saveLocale(locale: string) {
   }
 }
 
-// Reverse of getWikiLang() in stores/wikipedia.ts: maps a Wikipedia language
+// Wikipedia language code for a UI locale, as it appears in article URLs
+// (de.wikipedia.org, fr.wikipedia.org, ...).
+function wikiLangForLocale(locale: string): string {
+  return locale === 'en-US' ? 'en' : locale;
+}
+
+// The Wikipedia the UI is currently pointed at. Always in sync with the
+// displayed UI language; inverse of localeForWikiLang().
+function getWikiLang(): string {
+  return wikiLangForLocale(getActiveLocale());
+}
+
+// Reverse of wikiLangForLocale(): maps a Wikipedia language
 // code (as it appears in article URLs) back to a supported UI locale, or
 // null if the wiki language has no matching UI translation.
 function localeForWikiLang(wikiLang: string): MessageLanguages | null {
@@ -99,11 +127,19 @@ function localeForWikiLang(wikiLang: string): MessageLanguages | null {
 
 export default defineBoot(({ app }) => {
   const i18n = createI18n<{ message: MessageSchema }, MessageLanguages>({
-    locale: getSavedLocale(),
+    locale: getActiveLocale(),
     messages,
   });
 
   app.use(i18n);
 });
 
-export { saveLocale, getSavedLocale, localeForWikiLang, localeForBrowserLanguage, LOCALE_STORAGE_KEY };
+export {
+  saveLocale,
+  getActiveLocale,
+  getWikiLang,
+  wikiLangForLocale,
+  localeForWikiLang,
+  localeForBrowserLanguage,
+  LOCALE_STORAGE_KEY,
+};

@@ -138,12 +138,13 @@ import { defineComponent, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import { saveLocale } from 'boot/i18n';
+import { saveLocale, wikiLangForLocale } from 'boot/i18n';
 import { useWikipediaStore, type FontFamily, type FontSizeLevel } from 'stores/wikipedia';
 import ArticleToc from 'components/ArticleToc.vue';
 import HeaderSearchForm from 'components/HeaderSearchForm.vue';
 import { resolveCurrentBranding } from 'src/utils/branding';
 import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
+import { UI_LOCALE_OPTIONS, uiLocaleLabel } from 'src/utils/ui-locales';
 
 const DARK_STORAGE_KEY = 'ki-pedia-dark';
 
@@ -194,13 +195,7 @@ export default defineComponent({
       }
     });
 
-    const localeOptions = [
-      { label: 'Deutsch', value: 'de' },
-      { label: 'Français', value: 'fr' },
-      { label: 'Italiano', value: 'it' },
-      { label: 'Rumantsch', value: 'rm' },
-      { label: 'English', value: 'en-US' },
-    ];
+    const localeOptions = UI_LOCALE_OPTIONS;
 
     const currentLocale = computed(() => locale.value);
     const showHeaderBrand = computed(() => $q.screen.gt.xs);
@@ -216,16 +211,12 @@ export default defineComponent({
       return getWikiLanguageLabel(code, locale.value) ?? code;
     }
 
-    function uiWikiLangForLocale (value: string) {
-      return value === 'en-US' ? 'en' : value;
-    }
-
     function buildArticleLanguageNoticeText (nextLocale: string): ArticleLanguageNoticeText {
       return {
         title: t('article.languageNoticeTitle'),
         close: t('article.close'),
         displayLanguage: t('article.languageNoticeDisplayLanguage', {
-          lang: languageLabelFor(uiWikiLangForLocale(nextLocale)),
+          lang: languageLabelFor(wikiLangForLocale(nextLocale)),
         }),
         articleLanguage: t('article.languageNoticeArticleLanguage', {
           lang: languageLabelFor(wikiStore.articleLang),
@@ -236,9 +227,7 @@ export default defineComponent({
       };
     }
 
-    const currentLocaleLabel = computed(() => {
-      return localeOptions.find((option) => option.value === currentLocale.value)?.label ?? currentLocale.value;
-    });
+    const currentLocaleLabel = computed(() => uiLocaleLabel(currentLocale.value));
     const localeTooltipLabel = computed(() => t('header.languageTooltip'));
 
     // Dark mode from LocalStorage

@@ -10,24 +10,8 @@
         </template>
       </q-input>
 
-      <q-card v-if="suggestions.length > 0 && showSuggestions" class="header-suggestions-dropdown">
-        <q-list separator>
-          <q-item v-for="(item, index) in suggestions" :key="item.pageid" clickable v-ripple
-            :active="index === highlightedIndex" active-class="suggestion-active"
-            @mousedown.prevent="openArticle(item.title)">
-            <q-item-section avatar class="suggestion-thumb">
-              <q-avatar rounded size="40px" v-if="item.thumbnail">
-                <img :src="item.thumbnail" :alt="item.title" />
-              </q-avatar>
-              <q-avatar rounded size="40px" color="grey-2" text-color="grey-5" icon="article" v-else />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label class="text-weight-bold">{{ item.title }}</q-item-label>
-              <q-item-label caption class="header-suggestion-description">{{ item.description }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-card>
+      <search-suggestions-menu v-model="showSuggestions" :suggestions="suggestions"
+        :highlighted-index="highlightedIndex" @select="openArticle($event.title)" />
     </div>
   </q-form>
 </template>
@@ -36,10 +20,15 @@
 import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSearchSuggestions } from 'src/composables/useSearchSuggestions';
-import { getWikiLang } from 'stores/wikipedia';
+import SearchSuggestionsMenu from 'components/SearchSuggestionsMenu.vue';
+import { getWikiLang } from 'boot/i18n';
 
 export default defineComponent({
   name: 'HeaderSearchForm',
+
+  components: {
+    SearchSuggestionsMenu,
+  },
 
   props: {
     autofocus: {
@@ -126,77 +115,4 @@ export default defineComponent({
   border-radius: 24px;
 }
 
-.header-suggestions-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 1100;
-  max-height: 400px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-radius: 16px;
-  text-align: left;
-  background: var(--kp-surface);
-  color: #0e1b33;
-  box-shadow: var(--kp-shadow-lg);
-  border: 1px solid rgba(82, 40, 129, 0.08);
-}
-
-.header-suggestions-dropdown :deep(.q-list) {
-  overflow-x: hidden;
-}
-
-.header-suggestions-dropdown :deep(.q-item) {
-  max-width: 100%;
-}
-
-.header-suggestions-dropdown :deep(.q-item__section) {
-  min-width: 0;
-}
-
-.header-suggestions-dropdown :deep(.q-item__label) {
-  color: #0e1b33;
-}
-
-.header-suggestions-dropdown :deep(.q-item__label--caption) {
-  color: #5f6675;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.header-suggestion-description {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.body--dark .header-suggestions-dropdown {
-  color: #f4f5f8;
-}
-
-.body--dark .header-suggestions-dropdown :deep(.q-item__label) {
-  color: #f4f5f8;
-}
-
-.body--dark .header-suggestions-dropdown :deep(.q-item__label--caption) {
-  color: #c4cada;
-}
-
-.suggestion-active {
-  background: rgba(82, 40, 129, 0.06);
-}
-
-.body--dark .suggestion-active {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.suggestion-thumb {
-  min-width: 48px !important;
-}
-
-.suggestion-thumb :deep(.q-avatar__content img) {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 </style>

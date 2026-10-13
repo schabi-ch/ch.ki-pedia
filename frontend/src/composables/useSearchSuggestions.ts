@@ -1,19 +1,12 @@
 import { onBeforeUnmount, ref } from 'vue';
 import { api } from 'boot/axios';
-
-const LOCALE_STORAGE_KEY = 'ki-pedia-locale';
+import { getWikiLang } from 'boot/i18n';
 
 export interface Suggestion {
   title: string;
   description: string;
   thumbnail: string | null;
   pageid: number;
-}
-
-function getWikiLang (): string {
-  const locale = localStorage.getItem(LOCALE_STORAGE_KEY) || 'de';
-  if (locale === 'en-US') return 'en';
-  return locale;
 }
 
 export function useSearchSuggestions () {

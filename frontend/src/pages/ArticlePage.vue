@@ -297,8 +297,8 @@
 <script lang="ts">
 import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { GRADE_LEVELS, useWikipediaStore, getWikiLang, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
-import { saveLocale, localeForWikiLang } from 'boot/i18n';
+import { GRADE_LEVELS, useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
+import { saveLocale, localeForWikiLang, getWikiLang } from 'boot/i18n';
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';

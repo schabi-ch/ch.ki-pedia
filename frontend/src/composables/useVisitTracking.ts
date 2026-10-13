@@ -1,5 +1,5 @@
 import { api } from 'boot/axios';
-import { getSavedLocale } from 'boot/i18n';
+import { getActiveLocale } from 'boot/i18n';
 
 const VISIT_STORAGE_KEY = 'kp_visit';
 const VISITOR_STORAGE_KEY = 'kp_visitor';
@@ -51,7 +51,7 @@ function writeStorage(storage: Storage, key: string, value: string): void {
 }
 
 function getGuiLang(): string {
-  return getSavedLocale().toLowerCase().split('-')[0] || 'de';
+  return getActiveLocale().toLowerCase().split('-')[0] || 'de';
 }
 
 function isExcludedPath(path: string): boolean {
