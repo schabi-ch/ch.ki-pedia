@@ -125,6 +125,23 @@ function localeForWikiLang(wikiLang: string): MessageLanguages | null {
   return candidate in messages ? (candidate as MessageLanguages) : null;
 }
 
+// A visit that starts on a language-specific article URL (shared link, search
+// engine) may take its UI locale from that URL - but only on the very first
+// article route of the page load, and only if the visitor never picked a UI
+// language. Later route changes (switching the article language, back button)
+// must leave the UI alone, so students keep an interface they can read.
+// Like browser/domain detection, the result is not persisted.
+let entryLocaleConsidered = false;
+
+function adoptEntryLocale(wikiLang: string | undefined): MessageLanguages | null {
+  if (entryLocaleConsidered) return null;
+  entryLocaleConsidered = true;
+  if (!wikiLang || readSavedLocale()) return null;
+  const locale = localeForWikiLang(wikiLang);
+  if (locale) activeLocale = locale;
+  return locale;
+}
+
 export default defineBoot(({ app }) => {
   const i18n = createI18n<{ message: MessageSchema }, MessageLanguages>({
     locale: getActiveLocale(),
@@ -140,6 +157,7 @@ export {
   getWikiLang,
   wikiLangForLocale,
   localeForWikiLang,
+  adoptEntryLocale,
   localeForBrowserLanguage,
   LOCALE_STORAGE_KEY,
 };

@@ -298,7 +298,7 @@
 import { defineComponent, nextTick, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { GRADE_LEVELS, useWikipediaStore, type ArticleViewState, type CefrSliderLevel, type GradeLevel } from 'stores/wikipedia';
-import { saveLocale, localeForWikiLang, getWikiLang } from 'boot/i18n';
+import { adoptEntryLocale, getWikiLang } from 'boot/i18n';
 import { useQuasar } from 'quasar';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
@@ -1185,12 +1185,9 @@ export default defineComponent({
     // /article/:title (no language segment, falls back to the viewer's own
     // UI language, same as before URLs carried a language at all).
     async loadArticleFromRoute (title: string, wikiLang: string | undefined) {
-      if (wikiLang) {
-        const uiLocale = localeForWikiLang(wikiLang);
-        if (uiLocale && uiLocale !== this.$i18n.locale) {
-          this.$i18n.locale = uiLocale;
-          saveLocale(uiLocale);
-        }
+      const uiLocale = adoptEntryLocale(wikiLang);
+      if (uiLocale && uiLocale !== this.$i18n.locale) {
+        this.$i18n.locale = uiLocale;
       }
       const targetLang = wikiLang ?? getWikiLang();
       if (this.store.article?.title === title && this.store.articleLang === targetLang) {
