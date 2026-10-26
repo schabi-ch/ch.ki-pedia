@@ -399,11 +399,10 @@ export default defineComponent({
     const showOriginalHtmlContent = computed(
       () => store.activeVariant === 'original' && !store.simplifiedContent && !!store.article?.contentHtml,
     );
+    // Shown for simplified variants too: their text keeps the footnote links
+    // (cite_note-…) that point into the references section.
     const showAppendix = computed(
-      () =>
-        store.activeVariant === 'original' &&
-        !!store.article &&
-        (store.article.appendixSections?.length ?? 0) > 0,
+      () => !!store.article && (store.article.appendixSections?.length ?? 0) > 0,
     );
     const gradeSections = computed(() => {
       if (!store.activeVariant.startsWith('grade:')) return [];

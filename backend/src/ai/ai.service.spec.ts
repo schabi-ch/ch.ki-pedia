@@ -245,9 +245,88 @@ describe('AiService', () => {
     expect(body.system).not.toContain('## Level 1 - einfacher');
   });
 
-  it('sends simplify in a single request even for very long input', async () => {
+  it('simplifies very long CEFR input section by section and keeps the order', async () => {
+    fetchMock.mockImplementation((_url, init) => {
+      const body = JSON.parse(init?.body as string) as AnthropicRequestBody;
+      const input = body.messages[0].content[0].text;
+      return Promise.resolve(
+        createJsonResponse({
+          content: [{ type: 'text', text: `simple:${input.split('\n')[0]}` }],
+        }),
+      );
+    });
+    const service = new AiService(
+      createConfigService({
+        AI_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'anthropic-key',
+      }),
+    );
+    const longText = [
+      '# Einleitung\n\n' + 'A'.repeat(9000),
+      '## Abschnitt 1\n\n' + 'B'.repeat(9000),
+      '## Abschnitt 2\n\n' + 'C'.repeat(9000),
+    ].join('\n\n');
+
+    const result = await service.simplify(
+      longText,
+      { mode: 'cefr', cefrLevel: 'a1' },
+      'de',
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.simplified).toBe(
+      'simple:# Einleitung\n\nsimple:## Abschnitt 1\n\nsimple:## Abschnitt 2',
+    );
+    const body = getFetchBody<AnthropicRequestBody & { system?: string }>();
+    expect(body.system).toContain('ONE PART of a longer article');
+  });
+
+  it('streams long CEFR input in article order even if later parts finish first', async () => {
+    fetchMock.mockImplementation(async (_url, init) => {
+      const body = JSON.parse(init?.body as string) as AnthropicRequestBody;
+      const heading = body.messages[0].content[0].text.split('\n')[0];
+      // Later sections answer faster than earlier ones.
+      const delay = heading.includes('2') ? 0 : heading.includes('1') ? 10 : 20;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return createStreamResponse([
+        `data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"${heading} "}}\n\n`,
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}\n\n',
+        'data: {"type":"message_stop"}\n\n',
+      ]);
+    });
+    const service = new AiService(
+      createConfigService({
+        AI_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'anthropic-key',
+      }),
+    );
+    const longText = [
+      '# Intro\n\n' + 'A'.repeat(9000),
+      '## Part 1\n\n' + 'B'.repeat(9000),
+      '## Part 2\n\n' + 'C'.repeat(9000),
+    ].join('\n\n');
+    const chunks: string[] = [];
+
+    const result = await service.simplifyStream(
+      longText,
+      { mode: 'cefr', cefrLevel: 'a2' },
+      'en',
+      (chunk) => {
+        chunks.push(chunk);
+      },
+    );
+
+    const expected = '# Intro ok\n\n## Part 1 ok\n\n## Part 2 ok';
+    expect(chunks.join('')).toBe(expected);
+    expect(result.simplified).toBe(expected);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('sends grade summaries in a single request even for very long input', async () => {
     fetchMock.mockResolvedValue(
-      createJsonResponse({ content: [{ type: 'text', text: 'Vereinfacht' }] }),
+      createJsonResponse({
+        content: [{ type: 'text', text: 'Zusammenfassung' }],
+      }),
     );
     const service = new AiService(
       createConfigService({
@@ -263,15 +342,12 @@ describe('AiService', () => {
 
     const result = await service.simplify(
       longText,
-      {
-        mode: 'cefr',
-        cefrLevel: 'a1',
-      },
+      { mode: 'grade', gradeLevel: 5 },
       'de',
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.simplified).toBe('Vereinfacht');
+    expect(result.simplified).toBe('Zusammenfassung');
     const body = getFetchBody<AnthropicRequestBody>();
     expect(body.messages[0].content[0].text).toBe(longText);
   });
@@ -551,7 +627,9 @@ describe('AiService', () => {
       'Do NOT suggest another Wikipedia article, another Wikipedia search term, or contributing to Wikipedia in this case',
     );
     expect(systemInstruction).not.toContain('Vielleicht findet sich');
-    expect(systemInstruction).toContain('the same language as the student\'s question');
+    expect(systemInstruction).toContain(
+      "the same language as the student's question",
+    );
     expect(systemInstruction).toContain('"action":"ask-original"');
     expect(body.generationConfig?.maxOutputTokens).toBe(2048);
     expect(body.generationConfig?.thinkingConfig).toEqual({
@@ -588,9 +666,10 @@ describe('AiService', () => {
       }),
     );
 
-    await expect(
-      service.chat(chatArticle(), 'What is it?'),
-    ).resolves.toEqual({ reply: 'Gemini reply', citations: [] });
+    await expect(service.chat(chatArticle(), 'What is it?')).resolves.toEqual({
+      reply: 'Gemini reply',
+      citations: [],
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/publishers/google/models/gemini-3.5-flash-lite:generateContent',

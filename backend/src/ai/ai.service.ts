@@ -99,6 +99,11 @@ type ChatResult = {
 @Injectable()
 export class AiService {
   private static readonly DEFAULT_SIMPLIFY_MAX_TOKENS = 32768;
+  // Long articles are simplified section by section: in a single request the
+  // model stops rewriting halfway and only emits empty headings for the rest.
+  private static readonly SIMPLIFY_CHUNK_TARGET_CHARS = 12000;
+  private static readonly SIMPLIFY_CHUNK_CONCURRENCY = 4;
+  private static readonly SIMPLIFY_CHUNK_SEPARATOR = '\n\n';
   private static readonly DEFAULT_CHAT_MAX_TOKENS = 2048;
   private static readonly DEFAULT_STRUCTURED_MAX_TOKENS = 4096;
   private static readonly PROMPT_DATA_GUARDRAIL = `Security rules:
@@ -234,8 +239,15 @@ export class AiService {
       return { simplified: text };
     }
 
-    const request = this.buildSimplifyRequest(text, variant, sourceLang);
-    const simplified = (await provider.completeText(request)).trim();
+    const parts = this.splitSimplifyInput(text, variant);
+    const results = await this.runWithConcurrency(parts, async (part) =>
+      (
+        await provider.completeText(
+          this.buildSimplifyRequest(part, variant, sourceLang, parts.length),
+        )
+      ).trim(),
+    );
+    const simplified = results.join(AiService.SIMPLIFY_CHUNK_SEPARATOR).trim();
     return { simplified };
   }
 
@@ -252,18 +264,55 @@ export class AiService {
       return { simplified: text };
     }
 
-    const request = this.buildSimplifyRequest(text, variant, sourceLang);
-    const outputChunks: string[] = [];
+    const parts = this.splitSimplifyInput(text, variant);
+    const partOutputs: string[][] = parts.map(() => []);
+    const partFinished = parts.map(() => false);
+    let currentPart = 0;
+    let emitQueue: Promise<void> = Promise.resolve();
+    const emit = (chunk: string) => {
+      emitQueue = emitQueue.then(() => onChunk(chunk));
+    };
+    // Parts run in parallel, but output is streamed strictly in article order:
+    // the current part streams live, later parts are buffered until it is done.
+    const advance = () => {
+      while (currentPart < parts.length && partFinished[currentPart]) {
+        currentPart += 1;
+        if (currentPart < parts.length) {
+          emit(AiService.SIMPLIFY_CHUNK_SEPARATOR);
+          const buffered = partOutputs[currentPart].join('');
+          if (buffered) emit(buffered);
+        }
+      }
+    };
 
-    await provider.completeTextStream({
-      ...request,
-      signal,
-      async onChunk(chunk) {
-        outputChunks.push(chunk);
-        await onChunk(chunk);
-      },
-    });
-    const simplified = outputChunks.join('').trim();
+    const partsAbortController = new AbortController();
+    const abortParts = () => partsAbortController.abort();
+    signal?.addEventListener('abort', abortParts, { once: true });
+    try {
+      await this.runWithConcurrency(parts, async (part, index) => {
+        await provider.completeTextStream({
+          ...this.buildSimplifyRequest(part, variant, sourceLang, parts.length),
+          signal: partsAbortController.signal,
+          onChunk(chunk) {
+            partOutputs[index].push(chunk);
+            if (index === currentPart) emit(chunk);
+          },
+        });
+        partFinished[index] = true;
+        advance();
+      });
+    } catch (error) {
+      abortParts();
+      throw error;
+    } finally {
+      signal?.removeEventListener('abort', abortParts);
+    }
+    await emitQueue;
+
+    const simplified = partOutputs
+      .map((output) => output.join('').trim())
+      .join(AiService.SIMPLIFY_CHUNK_SEPARATOR)
+      .trim();
     return { simplified };
   }
 
@@ -549,6 +598,7 @@ Return ONLY valid JSON, without Markdown fences or preamble, in this exact shape
     text: string,
     variant: SimplifyVariant,
     sourceLang: string,
+    partCount = 1,
   ): {
     prompt: string;
     systemPrompt: string;
@@ -560,13 +610,83 @@ Return ONLY valid JSON, without Markdown fences or preamble, in this exact shape
         variant.mode === 'cefr'
           ? this.buildCefrSimplifySystemPrompt(
               AiService.CEFR_PROMPTS[variant.cefrLevel],
+              partCount > 1,
             )
           : this.buildGradeSummarySystemPrompt(variant.gradeLevel, sourceLang),
       maxTokens: this.getSimplifyMaxTokens(),
     };
   }
 
-  private buildCefrSimplifySystemPrompt(levelInstruction: string): string {
+  /**
+   * CEFR rewrites keep the article structure, so long input is split at
+   * Markdown headings into parts of roughly SIMPLIFY_CHUNK_TARGET_CHARS.
+   * Grade summaries need the whole article at once and are never split.
+   */
+  private splitSimplifyInput(text: string, variant: SimplifyVariant): string[] {
+    const target = AiService.SIMPLIFY_CHUNK_TARGET_CHARS;
+    if (variant.mode !== 'cefr' || text.length <= target) {
+      return [text];
+    }
+
+    const sections: string[] = [];
+    let current: string[] = [];
+    for (const line of text.split('\n')) {
+      if (/^#{1,6}\s/.test(line) && current.length > 0) {
+        sections.push(current.join('\n'));
+        current = [];
+      }
+      current.push(line);
+    }
+    sections.push(current.join('\n'));
+
+    // Sections that are still too long are split at paragraph boundaries.
+    const blocks = sections.flatMap((section) =>
+      section.length <= target ? [section] : section.split(/\n{2,}/),
+    );
+
+    const parts: string[] = [];
+    let part = '';
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+      if (part && part.length + block.length + 2 > target) {
+        parts.push(part);
+        part = '';
+      }
+      part = part ? `${part}\n\n${block}` : block;
+    }
+    if (part) parts.push(part);
+    return parts.map((p) => p.trim()).filter((p) => p.length > 0);
+  }
+
+  private async runWithConcurrency<T, R>(
+    items: T[],
+    worker: (item: T, index: number) => Promise<R>,
+  ): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const runners = Array.from(
+      {
+        length: Math.min(AiService.SIMPLIFY_CHUNK_CONCURRENCY, items.length),
+      },
+      async () => {
+        while (next < items.length) {
+          const index = next++;
+          results[index] = await worker(items[index], index);
+        }
+      },
+    );
+    await Promise.all(runners);
+    return results;
+  }
+
+  private buildCefrSimplifySystemPrompt(
+    levelInstruction: string,
+    isPartOfLongerText = false,
+  ): string {
+    const partNote = isPartOfLongerText
+      ? `
+- The input is ONE PART of a longer article; the other parts are rewritten separately. Rewrite only this part and do not add an introduction or conclusion.`
+      : '';
     return `You are an educational text editor for students aged 12-15. ${levelInstruction}
 
 ${AiService.PROMPT_DATA_GUARDRAIL}
@@ -583,6 +703,7 @@ IMPORTANT structural rules:
 - Keep ALL links ([text](url)) in place. You may simplify the link text.
 - Keep the SAME section order. Do NOT merge, remove, or reorder sections.
 - Rewrite the FULL text, not only the beginning. Do not summarize unless the level instruction explicitly requires shorter wording.
+- Every section that contains text in the input MUST contain simplified text in the output. Never output a heading without its text.${partNote}
 - Return ONLY the simplified Markdown without any preamble.`;
   }
 
@@ -754,7 +875,10 @@ ${this.buildUntrustedJsonBlock('ARTICLE_CONTEXT', {
           return { reply: reply.trim(), citations: [] };
         }
 
-        return { reply: reply.trim(), ...this.parseChatMetadata(buffer, segments) };
+        return {
+          reply: reply.trim(),
+          ...this.parseChatMetadata(buffer, segments),
+        };
       },
     };
   }
