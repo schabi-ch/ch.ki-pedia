@@ -222,6 +222,24 @@
                 </div>
               </q-expansion-item>
             </div>
+            <footer class="article-attribution">
+              <p v-if="isAiAdaptedContent" class="article-attribution-adapted">
+                {{ $t('article.attribution.adapted') }}
+              </p>
+              <i18n-t keypath="article.attribution.text" tag="p" scope="global">
+                <template #article>
+                  <a :href="attributionLinks.articleUrl" target="_blank" rel="noopener noreferrer">{{ store.article.title }}</a>
+                </template>
+                <template #wikipedia>
+                  <a :href="attributionLinks.historyUrl" target="_blank" rel="noopener noreferrer"
+                    :title="$t('article.attribution.historyTitle')">{{ $t('article.attribution.wikipedia') }}</a>
+                </template>
+                <template #license>
+                  <a :href="attributionLinks.licenseUrl" target="_blank" rel="license noopener noreferrer">{{
+                    WIKIPEDIA_LICENSE_NAME }}</a>
+                </template>
+              </i18n-t>
+            </footer>
             <div v-if="showBottomCancelButton" class="simplify-cancel-bottom">
               <q-btn outline rounded no-caps color="primary" icon="stop" :label="$t('article.cancelSimplify')"
                 @click="onCancelSimplify" />
@@ -304,7 +322,8 @@ import { QMarkdown } from '@quasar/quasar-ui-qmarkdown';
 import FloatingChat from 'components/FloatingChat.vue';
 import SectionQuizDialog from 'components/SectionQuizDialog.vue';
 import { extractHeadings } from 'src/utils/article-headings';
-import { copyArticleToClipboard, downloadArticleAsWord } from 'src/utils/article-export';
+import { copyArticleToClipboard, downloadArticleAsWord, type ArticleExportFooter } from 'src/utils/article-export';
+import { WIKIPEDIA_LICENSE_NAME, wikipediaAttributionLinks } from 'src/utils/article-attribution';
 import { getWikiLanguageLabel } from 'src/utils/wiki-language-labels';
 import { splitGradeSections, type GradeArticleSection } from 'src/utils/grade-sections';
 import { assignCitationSegments, citationContextKey } from 'src/utils/article-citations';
@@ -538,9 +557,16 @@ export default defineComponent({
       return store.translateLoading ? 'stop' : 'translate';
     });
 
-    const showOriginalArticleButton = computed(() => {
+    const isAiAdaptedContent = computed(() => {
       return store.activeVariant !== 'original' || !!store.articleTranslation || store.translateLoading;
     });
+
+    const showOriginalArticleButton = isAiAdaptedContent;
+
+    const attributionLinks = computed(() => wikipediaAttributionLinks({
+      title: store.article?.title ?? '',
+      url: store.article?.url ?? '',
+    }));
 
     const activeCitationMessage = computed(() => {
       if (!store.activeChatMessageId) return null;
@@ -839,7 +865,7 @@ export default defineComponent({
       if (!article || !store.displayedContent) return;
       copyLoading.value = true;
       try {
-        await copyArticleToClipboard(displayArticleTitle.value, buildArticleExportMarkdown());
+        await copyArticleToClipboard(displayArticleTitle.value, buildArticleExportMarkdown(), buildAttributionFooter());
         $q.notify({ type: 'positive', message: t('article.copySuccess') });
       } catch (err) {
         console.error('Copy to clipboard failed', err);
@@ -854,7 +880,7 @@ export default defineComponent({
       if (!article || !store.displayedContent) return;
       wordLoading.value = true;
       try {
-        await downloadArticleAsWord(displayArticleTitle.value, buildWordExportMarkdown());
+        await downloadArticleAsWord(displayArticleTitle.value, buildWordExportMarkdown(), buildAttributionFooter());
       } catch (err) {
         console.error('Word export failed', err);
         $q.notify({ type: 'negative', message: t('article.wordError') });
@@ -942,11 +968,41 @@ export default defineComponent({
       return `## ${t('article.infobox.title')}\n\n${store.article?.infoboxHtml ?? ''}\n\n${articleMarkdown}`;
     }
 
+    function escapeMarkdownLinkText (value: string): string {
+      return String(value ?? '').replace(/([\\[\]])/g, '\\$1');
+    }
+
+    function buildAttributionFooter (): ArticleExportFooter {
+      const links = attributionLinks.value;
+      const title = store.article?.title ?? '';
+      const wikipedia = t('article.attribution.wikipedia');
+      const adapted = isAiAdaptedContent.value ? t('article.attribution.adapted') : '';
+      // Angle brackets keep URLs containing parentheses intact, e.g. "Bern_(Kanton)".
+      const markdown = t('article.attribution.text', {
+        article: `[${escapeMarkdownLinkText(title)}](<${links.articleUrl}>)`,
+        wikipedia: `[${wikipedia}](<${links.historyUrl}>)`,
+        license: `[${WIKIPEDIA_LICENSE_NAME}](<${links.licenseUrl}>)`,
+      });
+      const plainText = t('article.attribution.text', {
+        article: `${title} (${links.articleUrl})`,
+        wikipedia: `${wikipedia} (${links.historyUrl})`,
+        license: `${WIKIPEDIA_LICENSE_NAME} (${links.licenseUrl})`,
+      });
+      return {
+        markdown: adapted ? `${adapted}\n\n${markdown}` : markdown,
+        plainText: adapted ? `${adapted}\n${plainText}` : plainText,
+      };
+    }
+
     async function onCopySection (section: GradeArticleSection) {
       const key = sectionKey(section);
       sectionCopyLoading.value = key;
       try {
-        await copyArticleToClipboard(sectionClipboardTitle(section), buildSectionCopyMarkdown(section));
+        await copyArticleToClipboard(
+          sectionClipboardTitle(section),
+          buildSectionCopyMarkdown(section),
+          buildAttributionFooter(),
+        );
         $q.notify({ type: 'positive', message: t('article.section.copySuccess') });
       } catch (err) {
         console.error('Copy section to clipboard failed', err);
@@ -1055,6 +1111,9 @@ export default defineComponent({
       translateActionLabel,
       translateActionIcon,
       showOriginalArticleButton,
+      isAiAdaptedContent,
+      attributionLinks,
+      WIKIPEDIA_LICENSE_NAME,
       rememberArticleVersionForBack,
       CEFR_BUTTON_ORDER,
     };
@@ -1553,6 +1612,27 @@ export default defineComponent({
   .article-card-inner {
     padding: 20px 16px;
   }
+}
+
+.article-attribution {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 0.8rem;
+  color: var(--kp-text-secondary);
+}
+
+.article-attribution p {
+  margin: 0 0 4px;
+}
+
+.article-attribution a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+:global(.body--dark) .article-attribution {
+  border-top-color: rgba(255, 255, 255, 0.16);
 }
 
 .article-content {

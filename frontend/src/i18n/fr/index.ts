@@ -41,6 +41,12 @@ export default {
   },
   article: {
     sourceLink: 'Voir sur Wikipédia',
+    attribution: {
+      text: 'Source : « {article} » de {wikipedia} – sous licence {license}.',
+      wikipedia: 'Wikipédia',
+      historyTitle: 'Historique des versions avec tous les auteurs et autrices',
+      adapted: 'Ce texte a été adapté de l’article Wikipédia à l’aide de l’IA (simplifié ou traduit).',
+    },
     showOriginalArticle: "Afficher l'article original",
     langLabelStart: 'Cet article a été rédigé en',
     langLabelEnd: '.',

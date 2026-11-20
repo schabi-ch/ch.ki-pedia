@@ -41,6 +41,12 @@ export default {
   },
   article: {
     sourceLink: 'Guardar sin Wikipedia',
+    attribution: {
+      text: 'Funtauna: «{article}» da {wikipedia} – licenzià sut {license}.',
+      wikipedia: 'Wikipedia',
+      historyTitle: 'Istorgia da las versiuns cun tut las autras ed ils auturs',
+      adapted: 'Quest text è vegnì adattà dal artitgel da Wikipedia cun IA (simplifitgà resp. translatà).',
+    },
     showOriginalArticle: "Mussar l'artitgel original",
     langLabelStart: 'Quest artitgel è vegni scrit en',
     langLabelEnd: '.',

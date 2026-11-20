@@ -7,14 +7,22 @@ export function renderMarkdownToHtml (markdownText: string): string {
   return md.render(String(markdownText ?? ''));
 }
 
-function buildArticleHtml (title: string, markdownText: string): string {
-  const body = renderMarkdownToHtml(markdownText);
-  const safeTitle = escapeHtml(title);
-  return `<h1>${safeTitle}</h1>\n${body}`;
+// Source and licence notice appended after the article text in exports.
+export interface ArticleExportFooter {
+  markdown: string;
+  plainText: string;
 }
 
-function buildArticlePlainText (title: string, markdownText: string): string {
-  return `${title}\n\n${markdownText}`;
+function buildArticleHtml (title: string, markdownText: string, footer?: ArticleExportFooter): string {
+  const body = renderMarkdownToHtml(markdownText);
+  const safeTitle = escapeHtml(title);
+  const footerHtml = footer ? `\n<hr>\n${renderMarkdownToHtml(footer.markdown)}` : '';
+  return `<h1>${safeTitle}</h1>\n${body}${footerHtml}`;
+}
+
+function buildArticlePlainText (title: string, markdownText: string, footer?: ArticleExportFooter): string {
+  const footerText = footer ? `\n\n---\n${footer.plainText}` : '';
+  return `${title}\n\n${markdownText}${footerText}`;
 }
 
 function escapeHtml (input: string): string {
@@ -44,9 +52,13 @@ export async function copyTextToClipboard (plainText: string): Promise<void> {
   document.body.removeChild(el);
 }
 
-export async function copyArticleToClipboard (title: string, markdownText: string): Promise<void> {
-  const htmlText = buildArticleHtml(title, markdownText);
-  const plainText = buildArticlePlainText(title, markdownText);
+export async function copyArticleToClipboard (
+  title: string,
+  markdownText: string,
+  footer?: ArticleExportFooter,
+): Promise<void> {
+  const htmlText = buildArticleHtml(title, markdownText, footer);
+  const plainText = buildArticlePlainText(title, markdownText, footer);
 
   const typeHtml = 'text/html';
   const typePlain = 'text/plain';
@@ -114,8 +126,13 @@ async function downloadHtmlAsWord (title: string, bodyHtml: string, fileName: st
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function downloadArticleAsWord (title: string, markdownText: string): Promise<void> {
-  await downloadHtmlAsWord(title, buildArticleHtml(title, markdownText), `${sanitizeFileName(title)}.docx`);
+export async function downloadArticleAsWord (
+  title: string,
+  markdownText: string,
+  footer?: ArticleExportFooter,
+): Promise<void> {
+  const html = buildArticleHtml(title, markdownText, footer);
+  await downloadHtmlAsWord(title, html, `${sanitizeFileName(title)}.docx`);
 }
 
 export interface ChatExportMessage {
