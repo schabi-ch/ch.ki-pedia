@@ -1,7 +1,7 @@
 {
   "name": "ki-pedia",
   "version": "0.0.1",
-  "description": "A Wikipedia Project",
+  "description": "An educational tool by Wikimedia CH that uses AI to help students simplify, read, and explore Wikipedia articles in class.",
   "productName": "ki-pedia",
   "author": "Christof Müller <christof.mueller@schabi.ch>",
   "type": "module",

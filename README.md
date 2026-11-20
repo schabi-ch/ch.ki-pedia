@@ -151,6 +151,8 @@ See backend source for complete API documentation.
 
 The backend generates `/robots.txt` and `/sitemap.xml` per request for the domain it was called on (`backend/src/seo/`). The sitemap lists the four information pages (`/about`, `/education`, `/imprint`, `/privacy`); `robots.txt` disallows `/api/`, `/article/` and `/statistics` for all crawlers and blocks known AI training crawlers (GPTBot, ClaudeBot, CCBot, Bytespider, Google-Extended, ...) from the whole site.
 
+The backend also delivers the SPA's `index.html` itself (`backend/src/seo/index-html.ts`) and fills in `<title>`, `description`, `og:title`, `og:description` and `og:image` (1200×630 previews in `frontend/public/og/`, rendered from the logo SVGs in `logos/`) per domain: German on ki-pedia.ch/.org, French on ia-pedia/wikiped-ia, English on ai-pedia.ch (texts in `backend/src/seo/site-meta.ts`). Link previews and many crawlers do not run JavaScript, so this cannot be done in the frontend. The `quasar dev` server shows the English fallback from `frontend/package.json`.
+
 Crawlers, headless browsers and HTTP client libraries are identified by their User-Agent with the [`isbot`](https://www.npmjs.com/package/isbot) package (`backend/src/bots/`). A missing User-Agent counts as bot. Such clients
 
 - receive `403` on all `/api/ai/*` and `/api/wikipedia/*` routes, so they can neither trigger paid AI calls nor use the Wikipedia proxy,

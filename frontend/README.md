@@ -1,6 +1,6 @@
 # ki-pedia (ki-pedia)
 
-A Wikipedia Project
+An educational tool by Wikimedia CH that uses AI to help students simplify, read, and explore Wikipedia articles in class.
 
 ## Install the dependencies
 ```bash

@@ -48,6 +48,9 @@ export const AI_CRAWLER_USER_AGENTS = [
   'ImagesiftBot',
 ] as const;
 
+// Routes of this controller, served at the site root instead of under /api.
+export const SEO_ROOT_ROUTES = ['robots.txt', 'sitemap.xml'];
+
 const CACHE_CONTROL = 'public, max-age=3600';
 
 // Served without the /api prefix, see setGlobalPrefix() in main.ts.
